@@ -12,6 +12,7 @@ This is a Triton implementation of the Flash Attention algorithm
 (see: Dao et al., https://arxiv.org/pdf/2205.14135v2.pdf; Rabe and Staats https://arxiv.org/pdf/2112.05682v2.pdf)
 """
 
+import math
 import torch
 
 import triton
@@ -207,12 +208,14 @@ def _bwd_kernel(
 class _attention(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, q, k, v, sm_scale):
+    def forward(ctx, q, k, v, sm_scale=None):  # *** modified by CWM ***
         BLOCK = 128
         # shape constraints
         Lq, Lk, Lv = q.shape[-1], k.shape[-1], v.shape[-1]
         assert Lq == Lk and Lk == Lv
         assert Lk in {16, 32, 64, 128}
+        if sm_scale is None:  # *** added by CWM ***
+            sm_scale = 1 / math.sqrt(q.size(-1))  # *** added by CWM ***
         o = torch.empty_like(q)
         grid = (triton.cdiv(q.shape[2], BLOCK), q.shape[0] * q.shape[1])
         tmp = torch.empty((q.shape[0] * q.shape[1], q.shape[2]), device=q.device, dtype=torch.float32)
