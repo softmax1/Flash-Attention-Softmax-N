@@ -8,14 +8,19 @@ Note however that the +1 needs to be "shifted," see [#10](https://github.com/sof
 I'll complete this if/when I get something implemented.
 
 ## Limitations
-Currently, no Triton implementation of Flash Attention, here or elsewhere, has dropout. 
-This is a known limitation of using Triton versus CUDA.
+- Currently, no Triton implementation of Flash Attention, here or elsewhere, has dropout. This is a known limitation of using Triton versus CUDA.
+- This implementation only works with `dtype=torch.float16` for the query, key, and value tensors. I'd naively guess it should straightforward to generalize this.
+- This implementation also expects there to be multiple attention heads. That is, the query, key, and value tensors must be 4-dimensional. This should probably be generalizable as well.
 
 ## Testing
 The Triton language is not available on CPUs.
 Therefore, we need to use a GPU to fully test the implementation.
-So far the CPU tests have passed on my Macbook Air.
-I haven't had a chance to run this on AWS yet.
+
+The version I tested was:
+```
+triton==2.0.0.post1
+triton-nightly==2.1.0.dev20230808020556
+```
 
 ## Links
 - [Flash Attention paper](https://arxiv.org/abs/2205.14135)
