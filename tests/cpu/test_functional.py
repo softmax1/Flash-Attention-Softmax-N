@@ -1,7 +1,7 @@
 from pytest import approx, raises
 from torch import Tensor, log, float16
 from torch.nn.functional import scaled_dot_product_attention
-from torch.testing import assert_allclose
+from torch.testing import assert_close
 
 from src.functional import softmax_1, slow_attention
 from tests.common import get_query_key_value, device_name
@@ -51,15 +51,16 @@ def test_slow_attention(device_name):
         query_0, key_0, value_0 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=float16)
         actual_0 = slow_attention(query_0, key_0, value_0)
         expected_0 = scaled_dot_product_attention(query_0, key_0, value_0)
-        assert_allclose(actual_0, expected_0)
+        assert_close(actual_0, expected_0)
+        print("test 0 passed")
     except RuntimeError as e:
-        print(f"RuntimeError, {e}.")
+        print(f"RuntimeError during test 0, {e}.")
         pass
 
     query_1, key_1, value_1 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
     actual_1 = slow_attention(query_1, key_1, value_1)
     expected_1 = scaled_dot_product_attention(query_1, key_1, value_1)
-    assert_allclose(actual_1, expected_1)
+    assert_close(actual_1, expected_1)
 
     with raises(TypeError):
         scaled_dot_product_attention(query_1, key_1, value_1, scale=0.1)
@@ -74,13 +75,13 @@ def test_slow_attention(device_name):
     query_3, key_3, value_3 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
     actual_3 = slow_attention(query_3, key_3, value_3, is_causal=True)
     expected_3 = scaled_dot_product_attention(query_3, key_3, value_3, is_causal=True)
-    assert_allclose(actual_3, expected_3)
+    assert_close(actual_3, expected_3)
 
     query_4, key_4, value_4 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
     attn_mask_1 = Tensor([
         [[True for _ in range(max_sequence_len)] for _ in range(max_sequence_len)],
         [[False for _ in range(max_sequence_len)] for _ in range(max_sequence_len)]
-    ]).bool()
+    ]).bool().to(device_name)
     actual_4 = slow_attention(query_4, key_4, value_4, attn_mask=attn_mask_1)
     expected_4 = scaled_dot_product_attention(query_4, key_4, value_4, attn_mask=attn_mask_1)
     # the tolerances on `assert_allclose` were not cooperating
@@ -90,7 +91,7 @@ def test_slow_attention(device_name):
                 assert abs(actual_4[idx][jdx][kdx].item() - expected_4[idx][jdx][kdx].item()) < 3e-7
 
     query_5, key_5, value_5 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
-    attn_mask_2 = Tensor([[0.1, 0.2, 0.3] for _ in range(max_sequence_len)])
+    attn_mask_2 = Tensor([[0.1, 0.2, 0.3] for _ in range(max_sequence_len)]).to(device_name)
     actual_5 = slow_attention(query_5, key_5, value_5, attn_mask=attn_mask_2)
     expected_5 = scaled_dot_product_attention(query_5, key_5, value_5, attn_mask=attn_mask_2)
-    assert_allclose(actual_5, expected_5)
+    assert_close(actual_5, expected_5)
