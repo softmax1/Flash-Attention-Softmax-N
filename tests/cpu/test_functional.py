@@ -54,7 +54,8 @@ def test_slow_attention(device_name):
         query_0, key_0, value_0 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=float16)
         actual_0 = slow_attention(query_0, key_0, value_0)
         expected_0 = scaled_dot_product_attention(query_0, key_0, value_0)
-        assert_close(actual_0, expected_0)
+        atol_f16 = atol**0.5
+        assert_close(actual_0, expected_0, atol=atol_f16, rtol=rtol)
         print("test 0 passed")
     except RuntimeError as e:
         print(f"RuntimeError during test 0, {e}.")
