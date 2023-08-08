@@ -7,7 +7,7 @@ from src.flash_attn_triton_og import attention
 from tests.common import get_query_key_value, device_name
 
 
-def test_attention():
+def test_attention(device_name):
     batch_size = 32
     max_sequence_len = 1024
     embed_dimension = 32
