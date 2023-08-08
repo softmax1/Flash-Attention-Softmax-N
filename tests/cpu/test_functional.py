@@ -1,14 +1,13 @@
 from pytest import approx, raises
 from torch import Tensor, log, float16
-from torch.cuda import is_available
 from torch.nn.functional import scaled_dot_product_attention
 from torch.testing import assert_allclose
 
 from src.functional import softmax_1, slow_attention
-from tests.common import get_query_key_value
+from tests.common import get_query_key_value, device_name
 
 
-def test_softmax_1():
+def test_softmax_1(device_name):
     """
     Tests based on https://github.com/softmax1/EsperBERTo/blob/main/tests/functional/test_core.py
     """
@@ -21,7 +20,7 @@ def test_softmax_1():
         [1 / 600, 1 / 300, 1 / 200],
         [2 / 7, 4 / 7, 8 / 7]
     ]
-    input_1 = log(Tensor(expected_numerators))
+    input_1 = log(Tensor(expected_numerators).to(device_name))
     expected_denominators = [1 + sum(test_case) for test_case in expected_numerators]
 
     output_1 = softmax_1(input_1, dim=-1)
@@ -32,12 +31,12 @@ def test_softmax_1():
             assert output_1[idx][jdx].item() == approx(expected_answer)
 
     # exp([12., 89., 710.]) will naively lead to overflow at half-, single-, or double-precision
-    input_2 = Tensor([12., 89., 710.])
+    input_2 = Tensor([12., 89., 710.]).to(device_name)
     output_2 = softmax_1(input_2, dim=-1)
     assert output_2.sum() == 1
 
 
-def test_slow_attention():
+def test_slow_attention(device_name):
     """
     Comparing my Attention implementation to torch's `scaled_dot_product_attention`.
     It's less than ideal though because that is an experimental function.
@@ -46,13 +45,18 @@ def test_slow_attention():
     batch_size = 2
     max_sequence_len = 3
     embed_dimension = 8
-    device = "cuda" if is_available() else "cpu"
 
-    with raises(RuntimeError):
-        query_0, key_0, value_0 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device, dtype=float16)
-        scaled_dot_product_attention(query_0, key_0, value_0)
+    # I have torch==2.0.1 installed both locally and on AWS. This rasies a RuntimeError when I run loacally.
+    try:
+        query_0, key_0, value_0 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=float16)
+        actual_0 = slow_attention(query_0, key_0, value_0)
+        expected_0 = scaled_dot_product_attention(query_0, key_0, value_0)
+        assert_allclose(actual_0, expected_0)
+    except RuntimeError as e:
+        print(f"RuntimeError, {e}.")
+        pass
 
-    query_1, key_1, value_1 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device)
+    query_1, key_1, value_1 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
     actual_1 = slow_attention(query_1, key_1, value_1)
     expected_1 = scaled_dot_product_attention(query_1, key_1, value_1)
     assert_allclose(actual_1, expected_1)
@@ -60,19 +64,19 @@ def test_slow_attention():
     with raises(TypeError):
         scaled_dot_product_attention(query_1, key_1, value_1, scale=0.1)
 
-    query_2, key_2, value_2 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device)
+    query_2, key_2, value_2 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
     dropout_p = 0.25
     actual_2 = slow_attention(query_2, key_2, value_2, dropout_p=dropout_p)
     expected_2 = scaled_dot_product_attention(query_2, key_2, value_2, dropout_p=dropout_p)
     # there's probably a better test to do
     assert actual_2.sum() != expected_2.sum()
 
-    query_3, key_3, value_3 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device)
+    query_3, key_3, value_3 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
     actual_3 = slow_attention(query_3, key_3, value_3, is_causal=True)
     expected_3 = scaled_dot_product_attention(query_3, key_3, value_3, is_causal=True)
     assert_allclose(actual_3, expected_3)
 
-    query_4, key_4, value_4 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device)
+    query_4, key_4, value_4 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
     attn_mask_1 = Tensor([
         [[True for _ in range(max_sequence_len)] for _ in range(max_sequence_len)],
         [[False for _ in range(max_sequence_len)] for _ in range(max_sequence_len)]
@@ -85,7 +89,7 @@ def test_slow_attention():
             for kdx in range(expected_4.size(2)):
                 assert abs(actual_4[idx][jdx][kdx].item() - expected_4[idx][jdx][kdx].item()) < 3e-7
 
-    query_5, key_5, value_5 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device)
+    query_5, key_5, value_5 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
     attn_mask_2 = Tensor([[0.1, 0.2, 0.3] for _ in range(max_sequence_len)])
     actual_5 = slow_attention(query_5, key_5, value_5, attn_mask=attn_mask_2)
     expected_5 = scaled_dot_product_attention(query_5, key_5, value_5, attn_mask=attn_mask_2)
