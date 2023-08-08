@@ -7,7 +7,7 @@ Note however that the +1 needs to be "shifted," see [#10](https://github.com/sof
 ## Strategy
 The `_fwd_kernel` returns the output, $O$, the denominator, $\ell$, and the max value(s) of the inputs, $m$.
 As such, the initial strategy is to weight the output
-$$O \to O^\prime = O \cdot \frac{\ell}{\ell + e^-m} .$$
+$$O \to O^\prime = O \cdot \frac{\ell}{\ell + e^{-m}} .$$
 
 ## Usage
 I'll complete this if/when I get something implemented.
