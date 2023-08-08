@@ -67,12 +67,13 @@ def slow_attention(query: Tensor,
     - E: embedding dimension of the query and key
     - Ev: embedding dimension of the value
     """
+    device = 'cuda' if is_available() else 'cpu'
     L, S = query.size(-2), key.size(-2)
     scale_factor = 1 / sqrt(query.size(-1)) if scale is None else scale
-    attn_bias = zeros(L, S, dtype=query.dtype)
+    attn_bias = zeros(L, S, dtype=query.dtype, device=device)
     if is_causal:
         assert attn_mask is None
-        temp_mask = ones(L, S, dtype=bool).tril(diagonal=0)
+        temp_mask = ones(L, S, dtype=bool, device=device).tril(diagonal=0)
         attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
         attn_bias.to(query.dtype)
 
