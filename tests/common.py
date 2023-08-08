@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 
 from pytest import fixture
-from torch import Tensor, rand
+from torch import Tensor, empty
 from torch.cuda import is_available
 
 from src.functional import DType
@@ -13,9 +13,10 @@ def get_query_key_value(batch_size: int,
                         device: Optional[str] = None,
                         dtype: Optional[DType] = None
                         ) -> Tuple[Tensor, Tensor, Tensor]:
-    query = rand(batch_size, max_sequence_len, embed_dimension, device=device, dtype=dtype)
-    key = rand(batch_size, max_sequence_len, embed_dimension, device=device, dtype=dtype)
-    value = rand(batch_size, max_sequence_len, embed_dimension, device=device, dtype=dtype)
+    shape = (batch_size, max_sequence_len, embed_dimension)
+    query = empty(shape, device=device, dtype=dtype).normal_(mean=0., std=0.5).requires_grad_()
+    key = empty(shape, device=device, dtype=dtype).normal_(mean=0., std=0.5).requires_grad_()
+    value = empty(shape, device=device, dtype=dtype).normal_(mean=0., std=0.5).requires_grad_()
     return query, key, value
 
 
