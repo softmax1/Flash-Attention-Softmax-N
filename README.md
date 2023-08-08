@@ -4,17 +4,12 @@ Using the Triton language to try to implement Flash Attention with Softmax_1.
 Flash Attention computes the numerator and denominator of Attention separately, so all we need to do is add the "+1" term to the denominator.
 Note however that the +1 needs to be "shifted," see [#10](https://github.com/softmax1/softmax1/issues/10).
 
-## Strategy
-The `_fwd_kernel` returns the output, $O$, the denominator, $\ell$, and the max value(s) of the inputs, $m$.
-As such, the initial strategy is to weight the output
-$$O \to O^\prime = O \cdot \frac{\ell}{\ell + e^{-m}} .$$
-
 ## Usage
 I'll complete this if/when I get something implemented.
 
 ## Limitations
-- No Triton implementation of Flash Attention, here or elsewhere, has dropout. Currently, this is a known limitation of using Triton versus CUDA.
-- I'm starting with "the OG" Triton implementation of Flash Attention, which also does not support causal masking. If this goes well, I try to upgrade to v2, which does allow for causal masking.
+Currently, no Triton implementation of Flash Attention, here or elsewhere, has dropout. 
+This is a known limitation of using Triton versus CUDA.
 
 ## Testing
 The Triton language is not available on CPUs.
