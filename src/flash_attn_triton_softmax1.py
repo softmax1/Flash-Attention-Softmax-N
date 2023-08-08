@@ -14,7 +14,7 @@ Extra Credits:
 
 """
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 
@@ -248,7 +248,7 @@ class _attention(torch.autograd.Function):
                 sm_scale: Optional[float] = None
                 ) -> torch.Tensor:
         """
-        Triton implementation of (forward pass of) Flash Attention with Softmax_1
+        Triton implementation of forward pass of Flash Attention with Softmax_1
 
         :param ctx: context
         :param q: Query tensor; shape (N, ..., L, E).
@@ -294,7 +294,13 @@ class _attention(torch.autograd.Function):
         return o
 
     @staticmethod
-    def backward(ctx, do):
+    def backward(ctx, do: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
+        """
+        Triton implementation of backward pass of Flash Attention with Softmax_1
+        :param ctx: context
+        :param do: Output Gradient tensor; shape (N, ..., L, Ev). $\partial \phi / \partial \vec{o}$ where $\phi$ is the loss function
+        :return: Gradients of the Query, Key, and Value tensors along with two null values.
+        """
         BLOCK = 128
         q, k, v, o, L = ctx.saved_tensors
         do = do.contiguous()
