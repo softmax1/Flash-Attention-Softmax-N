@@ -1,7 +1,7 @@
 from math import sqrt
 from typing import Optional
 
-from torch import Tensor, index_select, arange, zeros, ones, dropout, tril, matmul
+from torch import Tensor, index_select, arange, zeros, ones, dropout, tril, matmul, exp
 from torch import bool as torch_bool
 from torch.nn.functional import softmax, pad
 
@@ -15,22 +15,14 @@ else:
 
 def softmax_1(input: Tensor, dim: Optional[int] = None, dtype: Optional[DType] = None) -> Tensor:
     """
-    $\text(softmax)_n(x_i) = exp(x_i) / (1 + sum_j exp(x_j))$
+    $\text(softmax)_n(x_i) = exp(x_i) / (n + \sum_j exp(x_j))$
 
-    The idea here is to pad the input with zeros.
-    That way the softmax, with its stable implementation under the hood, can naturally be used.
-    Afterwards we need to un-pad the output.
+    Note: softmax_n, with fixed input, is _not_ shift-symmetric when n != 0, and we must account for this.
+    Normally when computing a softmax, the maxes are subtracted from the inputs for numeric stability.
     """
-    if dim is None:
-        raise NotImplementedError('The padding approach is currently only implemented for a specific dimension.')
-    if dim >= 0:
-        dim -= len(input.size())
-    padding_size = -(2 * dim + 1) * (0,) + (1,)  # change the rightmost '1' to 'n' for softmax_n
-
-    padded_input = pad(input, padding_size, value=0)
-    padded_output = softmax(padded_input, dim=dim)
-    indices_to_keep = arange(input.size(dim), device=input.device)
-    output = index_select(padded_output, dim=dim, index=indices_to_keep)
+    shift = input.max(dim=dim, keepdim=True).values.detach()
+    numerator = exp(input - shift)
+    output = numerator / (exp(-shift) + numerator.sum(dim=dim, keepdim=True))
     return output if dtype is None else output.type(dtype=dtype)
 
 
