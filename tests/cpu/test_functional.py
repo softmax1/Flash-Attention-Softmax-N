@@ -3,7 +3,7 @@ from torch import Tensor, log, float16, randn_like
 from torch.nn.functional import scaled_dot_product_attention
 from torch.testing import assert_close
 
-from src.functional import softmax_1, slow_attention
+from src.functional import softmax_1, slow_attention, slow_attention_redux
 from tests.common import get_query_key_value, device_name
 
 
@@ -51,14 +51,10 @@ def test_slow_attention(device_name):
 
     query_0, key_0, value_0 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=float16)
     if "cuda" in device_name:
-        actual_0a = slow_attention(query_0, key_0, value_0)
-        expected_0a = scaled_dot_product_attention(query_0, key_0, value_0)
+        actual_0 = slow_attention(query_0, key_0, value_0)
+        expected_0 = scaled_dot_product_attention(query_0, key_0, value_0)
         atol_f16 = atol**0.5
-        assert_close(actual_0a, expected_0a, atol=atol_f16, rtol=rtol)
-
-        actual_0b = slow_attention(query_0, key_0, value_0, softmax_dtype=float16)
-        expected_0b = scaled_dot_product_attention(query_0, key_0, value_0)
-        assert_close(actual_0b, expected_0b, atol=atol_f16, rtol=rtol)
+        assert_close(actual_0, expected_0, atol=atol_f16, rtol=rtol)
     else:
         with raises(RuntimeError):
             slow_attention(query_0, key_0, value_0)
@@ -118,3 +114,56 @@ def test_slow_attention(device_name):
     actual_5 = slow_attention(query_5, key_5, value_5, attn_mask=attn_mask_2)
     expected_5 = scaled_dot_product_attention(query_5, key_5, value_5, attn_mask=attn_mask_2)
     assert_close(actual_5, expected_5, atol=atol, rtol=rtol)
+
+
+def test_slow_attention_redux(device_name):
+    batch_size = (8, 2)
+    max_sequence_len = 9
+    embed_dimension = 8
+
+    atol = 1e-6
+    rtol = 0.
+
+    query_0, key_0, value_0 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=float16)
+    if "cuda" in device_name:
+        actual_0 = slow_attention_redux(query_0, key_0, value_0, use_softmax1=True)
+        expected_0 = slow_attention(query_0, key_0, value_0, use_softmax1=True)
+        atol_f16 = atol**0.5
+        assert_close(actual_0, expected_0, atol=atol_f16, rtol=rtol)
+    else:
+        with raises(RuntimeError):
+            slow_attention_redux(query_0, key_0, value_0, use_softmax1=True)
+        with raises(RuntimeError):
+            slow_attention(query_0, key_0, value_0, use_softmax1=True)
+
+    # Test forward step,
+    query_1, key_1, value_1 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
+    actual_1 = slow_attention_redux(query_1, key_1, value_1, use_softmax1=True)
+    expected_1 = slow_attention(query_1, key_1, value_1, use_softmax1=True)
+    assert_close(actual_1, expected_1, atol=atol, rtol=rtol)
+
+    # and backward step.
+    doutput_1 = randn_like(query_1)
+    actual_1.backward(doutput_1)
+    actual_dvalue_1, value_1.grad = value_1.grad.clone(), None
+    actual_dkey_1, key_1.grad = key_1.grad.clone(), None
+    actual_dquery_1, query_1.grad = query_1.grad.clone(), None
+    expected_1.backward(doutput_1)
+    expected_dvalue_1, value_1.grad = value_1.grad.clone(), None
+    expected_dkey_1, key_1.grad = key_1.grad.clone(), None
+    expected_dquery_1, query_1.grad = query_1.grad.clone(), None
+    assert_close(actual_dvalue_1, expected_dvalue_1, atol=atol, rtol=rtol)
+    assert_close(actual_dkey_1, expected_dkey_1, atol=atol, rtol=rtol)
+    assert_close(actual_dquery_1, expected_dquery_1, atol=atol, rtol=rtol)
+
+    # Test scale argument
+    query_2, key_2, value_2 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
+    actual_2 = slow_attention_redux(query_2, key_2, value_2, scale=0.5, use_softmax1=True)
+    expected_2 = slow_attention(query_2, key_2, value_2, scale=0.5, use_softmax1=True)
+    assert_close(actual_2, expected_2, atol=atol, rtol=rtol)
+
+    # Testing casual mask.
+    query_3, key_3, value_3 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
+    actual_3 = slow_attention_redux(query_3, key_3, value_3, is_causal=True, use_softmax1=True)
+    expected_3 = slow_attention(query_3, key_3, value_3, is_causal=True, use_softmax1=True)
+    assert_close(actual_3, expected_3, atol=atol, rtol=rtol)

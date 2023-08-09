@@ -1,7 +1,7 @@
 from math import sqrt
 
 from pytest import mark
-from torch import float16, randn_like, bfloat16
+from torch import float16, randn_like
 from torch.testing import assert_close
 
 from src.functional import slow_attention
@@ -22,7 +22,7 @@ def test_attention(device_name, dtype, is_causal):
     # Test forward step,
     query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=dtype)
     actual = attention(query, key, value, is_causal, 1 / sqrt(query.size(-1)))
-    expected = slow_attention(query, key, value, is_causal=is_causal, softmax_dtype=float16)
+    expected = slow_attention(query, key, value, is_causal=is_causal)
     assert_close(actual, expected, atol=atol, rtol=rtol)
 
     # and backward step.
