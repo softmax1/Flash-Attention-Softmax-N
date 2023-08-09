@@ -41,7 +41,8 @@ def slow_attention(query: Tensor,
                    dropout_p: float = 0.0,
                    is_causal: bool = False,
                    scale: Optional[float] = None,
-                   use_softmax1: bool = False
+                   use_softmax1: bool = False,
+                   softmax_dtype: Optional[DType] = None,
                    ) -> Tensor:
     """
     Inefficient implementation of Scaled Dot Product Attention
@@ -59,6 +60,7 @@ def slow_attention(query: Tensor,
     :param is_causal: If true, assumes causal attention masking and errors if both attn_mask and is_causal are set.
     :param scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
     :param use_softmax1: If true, use softmax_1 instead of softmax_0
+    :param softmax_dtype: The datatype for the output from the softmax operation.
     :return: Attention output; shape (N, ..., L, Ev).
 
     Shape Legend:
@@ -85,8 +87,8 @@ def slow_attention(query: Tensor,
     attn_weight = query @ key.transpose(-2, -1) * scale_factor
     attn_weight += attn_bias
     if use_softmax1:
-        attn_weight = softmax_1(attn_weight, dim=-1)
+        attn_weight = softmax_1(attn_weight, dim=-1, dtype=softmax_dtype)
     else:
-        attn_weight = softmax(attn_weight, dim=-1)
+        attn_weight = softmax(attn_weight, dim=-1, dtype=softmax_dtype)
     attn_weight = dropout(attn_weight, dropout_p, train=True)
     return attn_weight @ value
