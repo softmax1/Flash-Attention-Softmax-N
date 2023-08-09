@@ -82,14 +82,14 @@ def test_simple_case(device_name):
     scale = 0.3
     weight = 0.1
 
-    query = weight * ones((N, 1, L, E), device=device_name)
-    key = weight * ones((N, 1, S, E), device=device_name)
-    value = weight * ones((N, 1, S, Ev), device=device_name)
+    query = weight * ones((N, 1, L, E), device=device_name, dtype=float16)
+    key = weight * ones((N, 1, S, E), device=device_name, dtype=float16)
+    value = weight * ones((N, 1, S, Ev), device=device_name, dtype=float16)
 
     output_0a = slow_attention(query, key, value, scale=scale, use_softmax1=True)
     output_1a = attention(query, key, value, False, scale)
 
-    expected_a_shape = weight * ones((N, 1, L, Ev), device=device_name)
+    expected_a_shape = weight * ones((N, 1, L, Ev), device=device_name, dtype=float16)
     expected_a_factor = S * exp(weight**2 * E * scale) / (1 + S * exp(weight**2 * E * scale))
     expected_a = expected_a_shape * expected_a_factor
 
@@ -100,6 +100,7 @@ def test_simple_case(device_name):
     output_1b = attention(query, key, value, True, scale)
 
     expected_b_factors = [(l + S - L) * exp(weight**2 * E * scale) / (1 + (l + S - L) * exp(weight**2 * E * scale)) for l in range(1, L + 1)]
+    expected_b = N * Ev * weight * Tensor([expected_b_factors]).to(device=device_name, dtype=float16)
 
-    assert_close(output_0b.sum(dim=0).sum(dim=-1), N * Ev * weight * Tensor([expected_b_factors]))
-    assert_close(output_1b.sum(dim=0).sum(dim=-1), N * Ev * weight * Tensor([expected_b_factors]))
+    assert_close(output_0b.sum(dim=0).sum(dim=-1), expected_b)
+    assert_close(output_1b.sum(dim=0).sum(dim=-1), expected_b)
