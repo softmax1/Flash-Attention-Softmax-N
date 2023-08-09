@@ -43,13 +43,14 @@ $$(\partial t)_{ijk} \equiv \frac{\partial \phi}{\partial t^{ijk}}$$.
 
 ## Limitations
 - Currently, no Triton implementation of Flash Attention, here or elsewhere, has dropout. This is a known limitation of using Triton versus CUDA.
-- This implementation only works with `dtype in {torch.float16, torch.bfloat16}` for the query, key, and value tensors.
+- This implementation only works with `dtype=torch.float16` for the query, key, and value tensors.
 - This implementation also expects there to be multiple attention heads. That is, the query, key, and value tensors must be 4-dimensional. This should probably be generalizable as well.
-- I started with $n = 1$, but it should be easy generalize to $n \in \mathbb{R}$.
 
 ## Testing
 The Triton language is not available on CPUs.
 Therefore, we need to use a GPU to fully test the implementation.
+
+NOTE: The tests using the causal mask with softmax_1 did not pass because approximately 0.1% of the elements of the output did not agree with their expected values to an absolute precison of 1e-2. 
 
 My testing used the following versions:
 ```
