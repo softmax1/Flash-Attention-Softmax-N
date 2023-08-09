@@ -22,7 +22,7 @@ def test_attention(device_name, dtype, is_casual):
     # Test forward step,
     query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=dtype)
     actual = attention(query, key, value, is_casual, 1 / sqrt(query.size(-1)))
-    expected = slow_attention(query, key, value, is_causal=is_casual)
+    expected = slow_attention(query, key, value, is_causal=is_casual, softmax_dtype=float16)
     assert_close(actual, expected, atol=atol, rtol=rtol)
 
     # and backward step.

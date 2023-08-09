@@ -49,17 +49,21 @@ def test_slow_attention(device_name):
     atol = 1e-6
     rtol = 0.
 
-    # I have torch==2.0.1 installed both locally and on AWS. However, this rasies a RuntimeError when I run loacally, but runs successfully on AWS.
-    try:
-        query_0, key_0, value_0 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=float16)
-        actual_0 = slow_attention(query_0, key_0, value_0)
-        expected_0 = scaled_dot_product_attention(query_0, key_0, value_0)
+    query_0, key_0, value_0 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=float16)
+    if "cuda" in device_name:
+        actual_0a = slow_attention(query_0, key_0, value_0)
+        expected_0a = scaled_dot_product_attention(query_0, key_0, value_0)
         atol_f16 = atol**0.5
-        assert_close(actual_0, expected_0, atol=atol_f16, rtol=rtol)
-        print("test 0 passed")
-    except RuntimeError as e:
-        print(f"RuntimeError during test 0, {e}.")
-        pass
+        assert_close(actual_0a, expected_0a, atol=atol_f16, rtol=rtol)
+
+        actual_0b = slow_attention(query_0, key_0, value_0, softmax_dtype=float16)
+        expected_0b = scaled_dot_product_attention(query_0, key_0, value_0, softmax_dtype=float16)
+        assert_close(actual_0b, expected_0b, atol=atol, rtol=rtol)
+    else:
+        with raises(RuntimeError):
+            slow_attention(query_0, key_0, value_0)
+        with raises(RuntimeError):
+            scaled_dot_product_attention(query_0, key_0, value_0)
 
     # Test forward step,
     query_1, key_1, value_1 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
@@ -80,6 +84,16 @@ def test_slow_attention(device_name):
     assert_close(actual_dvalue_1, expected_dvalue_1, atol=atol, rtol=rtol)
     assert_close(actual_dkey_1, expected_dkey_1, atol=atol, rtol=rtol)
     assert_close(actual_dquery_1, expected_dquery_1, atol=atol, rtol=rtol)
+
+    if "cuda" in device_name:
+        actual_1b = slow_attention(query_1, key_1, value_1, softmax_dtype=float16)
+        expected_1b = scaled_dot_product_attention(query_1, key_1, value_1, softmax_dtype=float16)
+        assert_close(actual_1b, expected_1b, atol=atol, rtol=rtol)
+    else:
+        with raises(RuntimeError):
+            slow_attention(query_1, key_1, value_1, softmax_dtype=float16)
+        with raises(RuntimeError):
+            scaled_dot_product_attention(query_1, key_1, value_1, softmax_dtype=float16)
 
     # torch version doesn't have a scale argument
     with raises(TypeError):
