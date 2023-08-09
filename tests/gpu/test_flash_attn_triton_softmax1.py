@@ -20,8 +20,8 @@ def test_attention(device_name, dtype, is_causal, scale):
 
     # Test forward step,
     query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=dtype)
-    actual = attention(query, key, value, is_causal, scale)
-    expected = slow_attention(query, key, value, is_causal=is_causal, scale=scale, use_softmax1=True)
+    actual = attention(query, key, value, casual=is_casual, sm_scale=scale)
+    expected = slow_attention(query, key, value, is_causal=is_casual, scale=scale, use_softmax1=True, softmax_dtype=float16)
     assert_close(actual, expected, atol=atol, rtol=rtol)
 
     # and backward step.
