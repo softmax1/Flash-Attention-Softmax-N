@@ -1,5 +1,7 @@
+from math import exp
+
 from pytest import approx, raises
-from torch import Tensor, log, float16, randn_like
+from torch import Tensor, log, float16, randn_like, ones
 from torch.nn.functional import scaled_dot_product_attention
 from torch.testing import assert_close
 
@@ -167,3 +169,34 @@ def test_slow_attention_redux(device_name):
     actual_3 = slow_attention_redux(query_3, key_3, value_3, is_causal=True, use_softmax1=True)
     expected_3 = slow_attention(query_3, key_3, value_3, is_causal=True, use_softmax1=True)
     assert_close(actual_3, expected_3, atol=atol, rtol=rtol)
+
+
+def test_simple_case(device_name):
+    N = 2
+    L = 3
+    S = 4
+    E = 8
+    Ev = 7
+    scale = 0.3
+    weight = 0.1
+
+    query = weight * ones((N, L, E), device=device_name)
+    key = weight * ones((N, S, E), device=device_name)
+    value = weight * ones((N, S, Ev), device=device_name)
+
+    output_0a = slow_attention(query, key, value, scale=scale)
+    output_1a = slow_attention(query, key, value, scale=scale, use_softmax1=True)
+
+    expected_0a = weight * ones((N, L, Ev), device=device_name)
+    expected_1a_factor = S * exp(weight**2 * E * scale) / (1 + S * exp(weight**2 * E * scale))
+
+    assert_close(output_0a, expected_0a)
+    assert_close(output_1a, expected_0a * expected_1a_factor)
+
+    output_0b = slow_attention(query, key, value, scale=scale, is_causal=True)
+    output_1b = slow_attention(query, key, value, scale=scale, is_causal=True, use_softmax1=True)
+
+    expected_1b_factors = [(l + S - L) * exp(weight**2 * E * scale) / (1 + (l + S - L) * exp(weight**2 * E * scale)) for l in range(1, L + 1)]
+
+    assert_close(output_0b, expected_0a)
+    assert_close(output_1b.sum(dim=0).sum(dim=-1), N * Ev * weight * Tensor(expected_1b_factors))

@@ -42,9 +42,11 @@ Gradients are of the loss function, $\phi$, with respect to a tensor. For exampl
 $$(\partial t)_{ijk} \equiv \frac{\partial \phi}{\partial t^{ijk}}$$.
 
 ## Limitations
-- Currently, no Triton implementation of Flash Attention, here or elsewhere, has dropout. This is a known limitation of using Triton versus CUDA.
+(These are all limitations of the "OG" algorithm I inheritied.)
+- Currently, no Triton implementation of Flash Attention, here or elsewhere, has dropout. In contrast, dropout is implemented in the CUDA version.
 - This implementation only works with `dtype=torch.float16` for the query, key, and value tensors.
-- This implementation also expects there to be multiple attention heads. That is, the query, key, and value tensors must be 4-dimensional. This should probably be generalizable as well.
+- This implementation also expects there to be multiple attention heads. That is, the query, key, and value tensors must be 4-dimensional.
+- The embedding dimension of the query, key, and value all must be the same. Generally, the value embedding can be a difference size.
 
 ## Testing
 The Triton language is not available on CPUs.
