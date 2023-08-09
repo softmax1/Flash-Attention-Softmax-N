@@ -199,4 +199,4 @@ def test_simple_case(device_name):
     expected_1b_factors = [(l + S - L) * exp(weight**2 * E * scale) / (1 + (l + S - L) * exp(weight**2 * E * scale)) for l in range(1, L + 1)]
 
     assert_close(output_0b, expected_0a)
-    assert_close(output_1b.sum(dim=0).sum(dim=-1), N * Ev * weight * Tensor(expected_1b_factors))
+    assert_close(output_1b.sum(dim=0).sum(dim=-1), N * Ev * weight * Tensor(expected_1b_factors).to(device_name))
