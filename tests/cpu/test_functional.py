@@ -1,6 +1,6 @@
 from math import exp
 
-from pytest import approx, raises
+from pytest import approx, raises, mark
 from torch import Tensor, log, float16, randn_like, ones
 from torch.nn.functional import scaled_dot_product_attention
 from torch.testing import assert_close
@@ -171,14 +171,14 @@ def test_slow_attention_redux(device_name):
     assert_close(actual_3, expected_3, atol=atol, rtol=rtol)
 
 
-def test_simple_case(device_name):
+@mark.parametrize("weight", [10, 1, 0.1, -0.1, -1, 10])
+def test_simple_case(device_name, weight):
     N = 2
     L = 3
     S = 4
     E = 8
     Ev = 7
     scale = 0.3
-    weight = 0.1
 
     query = weight * ones((N, L, E), device=device_name)
     key = weight * ones((N, S, E), device=device_name)
@@ -199,4 +199,4 @@ def test_simple_case(device_name):
     expected_1b_factors = [(l + S - L) * exp(weight**2 * E * scale) / (1 + (l + S - L) * exp(weight**2 * E * scale)) for l in range(1, L + 1)]
 
     assert_close(output_0b, expected_0a)
-    assert_close(output_1b.sum(dim=0).sum(dim=-1), N * Ev * weight * Tensor(expected_1b_factors))
+    assert_close(output_1b.sum(dim=0).sum(dim=-1), N * Ev * weight * Tensor(expected_1b_factors).to(device_name))
