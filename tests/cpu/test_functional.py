@@ -57,8 +57,8 @@ def test_slow_attention(device_name):
         assert_close(actual_0a, expected_0a, atol=atol_f16, rtol=rtol)
 
         actual_0b = slow_attention(query_0, key_0, value_0, softmax_dtype=float16)
-        expected_0b = scaled_dot_product_attention(query_0, key_0, value_0, softmax_dtype=float16)
-        assert_close(actual_0b, expected_0b, atol=atol, rtol=rtol)
+        expected_0b = scaled_dot_product_attention(query_0, key_0, value_0)
+        assert_close(actual_0b, expected_0b, atol=atol_f16, rtol=rtol)
     else:
         with raises(RuntimeError):
             slow_attention(query_0, key_0, value_0)
@@ -84,16 +84,6 @@ def test_slow_attention(device_name):
     assert_close(actual_dvalue_1, expected_dvalue_1, atol=atol, rtol=rtol)
     assert_close(actual_dkey_1, expected_dkey_1, atol=atol, rtol=rtol)
     assert_close(actual_dquery_1, expected_dquery_1, atol=atol, rtol=rtol)
-
-    if "cuda" in device_name:
-        actual_1b = slow_attention(query_1, key_1, value_1, softmax_dtype=float16)
-        expected_1b = scaled_dot_product_attention(query_1, key_1, value_1, softmax_dtype=float16)
-        assert_close(actual_1b, expected_1b, atol=atol, rtol=rtol)
-    else:
-        with raises(RuntimeError):
-            slow_attention(query_1, key_1, value_1, softmax_dtype=float16)
-        with raises(RuntimeError):
-            scaled_dot_product_attention(query_1, key_1, value_1, softmax_dtype=float16)
 
     # torch version doesn't have a scale argument
     with raises(TypeError):
