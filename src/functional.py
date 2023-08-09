@@ -77,7 +77,7 @@ def slow_attention(query: Tensor,
     attn_bias = zeros(L, S, dtype=query.dtype, device=query.device)
     if is_causal:
         assert attn_mask is None
-        temp_mask = ones(L, S, dtype=torch_bool, device=query.device).tril(diagonal=0)
+        temp_mask = ones(L, S, dtype=torch_bool, device=query.device).tril(diagonal=S-L)
         attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
         attn_bias.to(query.dtype)
 
