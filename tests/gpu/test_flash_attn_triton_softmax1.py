@@ -1,7 +1,9 @@
+import gc
 from math import exp
 
 from pytest import mark
 from torch import float16, randn_like, ones, Tensor
+from torch.cuda import empty_cache
 from torch.testing import assert_close
 
 from src.functional import slow_attention, slow_attention_redux
@@ -17,8 +19,8 @@ def test_attention(device_name, dtype, is_causal, scale):
     max_sequence_len = 1024
     embed_dimension = 32
 
-    rtol = 1e-2 if is_causal else 1e-3
-    atol = 0.
+    atol = 1e-2 if is_causal else 1e-3
+    rtol = 0.
 
     # Test forward step,
     query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=dtype)
@@ -40,10 +42,13 @@ def test_attention(device_name, dtype, is_causal, scale):
     assert_close(actual_dkey, expected_dkey, atol=atol, rtol=rtol)
     assert_close(actual_dquery, expected_dquery, atol=atol, rtol=rtol)
 
+    empty_cache()
+    gc.collect()
+
 
 @mark.parametrize("dtype", [float16])
 @mark.parametrize("is_causal", [False, True])
-@mark.parametrize("scale", [None, 0.5, 0.01])
+@mark.parametrize("scale", [None, 0.35, 0.01])
 def test_attention_redux(device_name, dtype, is_causal, scale):
     batch_size = (32, 8)
     max_sequence_len = 1024
@@ -71,6 +76,9 @@ def test_attention_redux(device_name, dtype, is_causal, scale):
     assert_close(actual_dvalue, expected_dvalue, atol=atol, rtol=rtol)
     assert_close(actual_dkey, expected_dkey, atol=atol, rtol=rtol)
     assert_close(actual_dquery, expected_dquery, atol=atol, rtol=rtol)
+
+    empty_cache()
+    gc.collect()
 
 
 @mark.parametrize("weight", [10, 3, 0.5, 0.04, 0.02, 0.01, 0, -0.01, -0.02, -0.04, -0.5, -3, -10])

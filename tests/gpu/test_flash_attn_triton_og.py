@@ -1,7 +1,9 @@
+import gc
 from math import sqrt
 
 from pytest import mark
 from torch import float16, randn_like
+from torch.cuda import empty_cache
 from torch.testing import assert_close
 
 from src.functional import slow_attention
@@ -26,7 +28,7 @@ def test_attention(device_name, dtype, is_causal):
     assert_close(actual, expected, atol=atol, rtol=rtol)
 
     # and backward step.
-    doutput = randn_like(query)
+    doutput = randn_like(actual)
     actual.backward(doutput)
     actual_dvalue, value.grad = value.grad.clone(), None
     actual_dkey, key.grad = key.grad.clone(), None
@@ -38,3 +40,6 @@ def test_attention(device_name, dtype, is_causal):
     assert_close(actual_dvalue, expected_dvalue, atol=atol, rtol=rtol)
     assert_close(actual_dkey, expected_dkey, atol=atol, rtol=rtol)
     assert_close(actual_dquery, expected_dquery, atol=atol, rtol=rtol)
+
+    empty_cache()
+    gc.collect()
