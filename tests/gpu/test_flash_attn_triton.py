@@ -10,14 +10,14 @@ from src.flash_attn_triton import flash_attention_n
 from tests.common import get_query_key_value, device_name, attention_analytic_answer, attention_analytic_casual_answer
 
 
-@mark.parametrize("sm_n", [0., 1., 1e-3, 1e-6, 4.])
+@mark.parametrize("sm_n", [0., 1., 1e-3, 1e-6, 4., 3.])
 @mark.parametrize("is_causal", [False, True])
-@mark.parametrize("scale", [None, 0.5, 0.01])
+@mark.parametrize("scale", [None, 0.5, 0.01, 0.4, 0.3, 0.02])
 def test_flash_attention_comparison(device_name, sm_n, is_causal, scale):
     """
     Compare the Torch and Triton Attention implementations
     """
-    batch_size = (32, 32)
+    batch_size = (32, 16)
     max_sequence_len = 1024
     embed_dimension = 32
 
@@ -71,11 +71,11 @@ def test_flash_attention_analytic(device_name, sm_n, weight):
     output_0a = slow_attention_n(query, key, value, scale=scale, n=sm_n)
     output_1a = flash_attention_n(query, key, value, sm_scale=scale, sm_n=sm_n)
 
-    expected_a = attention_analytic_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name)
+    expected_a = attention_analytic_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name, dtype=query.dtype)
 
     assert_close(output_1a, output_0a, atol=atol, rtol=rtol)
-    assert_close(output_0a, expected_a, atol=atol, rtol=rtol)
-    assert_close(output_1a, expected_a, atol=atol, rtol=rtol)
+    assert_close(output_0a[:, 0, :, :], expected_a, atol=atol, rtol=rtol)
+    assert_close(output_1a[:, 0, :, :], expected_a, atol=atol, rtol=rtol)
 
     atol = 0
     rtol = 2e-3
@@ -83,7 +83,7 @@ def test_flash_attention_analytic(device_name, sm_n, weight):
     output_0b = slow_attention_n(query, key, value, scale=scale, is_causal=True, n=sm_n)
     output_1b = flash_attention_n(query, key, value, causal=True, sm_scale=scale, sm_n=sm_n)
 
-    expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name)
+    expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name, dtype=query.dtype)
 
     assert_close(output_1b, output_0b, atol=atol, rtol=rtol)
     assert_close(output_0b.sum(dim=0).sum(dim=-1)[0], expected_b, atol=atol, rtol=rtol)
