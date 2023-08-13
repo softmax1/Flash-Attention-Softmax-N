@@ -1,8 +1,9 @@
 # FlashAttention-with-Softmax1
 
 Using the Triton language to implement Flash Attention with Softmax_n. 
-Flash Attention computes the numerator and denominator of Attention separately, so all we need to do is add the "+n" term to the denominator.
+Flash Attention computes the numerator and denominator of Attention separately, so all we need to do in the forward pass is add the "+n" term to the denominator.
 Note however that the +n needs to be "shifted," see [#10](https://github.com/softmax1/softmax1/issues/10).
+For the backward pass we need to specify that no gradient should be computed for our parameter n.
 
 ## Usage
 The main function is

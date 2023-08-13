@@ -135,9 +135,9 @@ def test_slow_attention_n(device_name, sm_n, weight):
     value = weight * ones((N, S, Ev), device=device_name)
 
     output_a = slow_attention_n(query, key, value, scale=scale, n=sm_n)
-    expected_a = attention_analytic_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name)
+    expected_a = attention_analytic_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name, dtype=query.dtype)
     assert_close(output_a, expected_a)
 
     output_b = slow_attention_n(query, key, value, scale=scale, is_causal=True, n=sm_n)
-    expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name)
+    expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name, dtype=query.dtype)
     assert_close(output_b.sum(dim=0).sum(dim=-1), expected_b)

@@ -299,7 +299,7 @@ class _FlashAttentionN(torch.autograd.Function):
         return o
 
     @staticmethod
-    def backward(ctx, do: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
+    def backward(ctx, do: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None, None, None]:
         """
         Triton implementation of backward pass of Flash Attention with Softmax_1
         :param ctx: context
@@ -333,7 +333,7 @@ class _FlashAttentionN(torch.autograd.Function):
             CAUSAL=ctx.causal,
             num_stages=1,
         )
-        return dq, dk, dv, None, None
+        return dq, dk, dv, None, None, None
 
 
 def flash_attention_n(q: torch.Tensor,

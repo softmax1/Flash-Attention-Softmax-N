@@ -27,16 +27,18 @@ def device_name() -> str:
 
 
 def attention_analytic_answer(N: int, L: int, S: int, E: int, Ev: int,
-                              scale: float, weight: float, softmax_n_param: float, device: Optional[str] = None
+                              scale: float, weight: float, softmax_n_param: float,
+                              device: str, dtype: DType
                               ) -> Tensor:
     answer_0 = weight * ones((N, L, Ev), device=device)
     factor_n = S / (softmax_n_param * exp(-weight**2 * E * scale) + S)
-    return answer_0 * factor_n
+    return (answer_0 * factor_n).type(dtype=dtype)
 
 
 def attention_analytic_casual_answer(N: int, L: int, S: int, E: int, Ev: int,
-                                     scale: float, weight: float, softmax_n_param: float, device: Optional[str] = None
+                                     scale: float, weight: float, softmax_n_param: float,
+                                     device: str, dtype: DType
                                      ) -> Tensor:
     factors_n = [(ell + S - L) / (softmax_n_param * exp(-weight**2 * E * scale) + (ell + S - L)) for ell in range(1, L + 1)]
-    answer = N * Ev * weight * Tensor(factors_n).to(device)
-    return answer if device is None else answer.to(device)
+    answer = N * Ev * weight * Tensor(factors_n).to(device=device)
+    return answer.type(dtype=dtype)
