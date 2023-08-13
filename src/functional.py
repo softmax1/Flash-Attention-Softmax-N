@@ -1,9 +1,8 @@
 from math import sqrt
 from typing import Optional
 
-from torch import Tensor, zeros, ones, dropout, tril, matmul, exp
+from torch import Tensor, zeros, ones, dropout, exp
 from torch import bool as torch_bool
-from torch.nn.functional import softmax
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -88,30 +87,3 @@ def slow_attention_n(query: Tensor,
     attn_weight = softmax_n(attn_weight, n=n, dim=-1, dtype=softmax_dtype)
     attn_weight = dropout(attn_weight, dropout_p, train=True)
     return attn_weight @ value
-
-
-def slow_attention_redux(query: Tensor,
-                         key: Tensor,
-                         value: Tensor,
-                         is_causal: bool = False,
-                         scale: Optional[float] = None,
-                         use_softmax1: bool = False,
-                         softmax_dtype: Optional[DType] = None,
-                         ) -> Tensor:
-    """
-    Implementation adapted from https://github.com/openai/triton/blob/main/python/tutorials/06-fused-attention.py
-    """
-    L, S = query.size(-2), key.size(-2)
-    scale_factor = 1 / sqrt(query.size(-1)) if scale is None else scale
-    if softmax_dtype is None:
-        softmax_dtype = query.dtype
-
-    mask = tril(ones((L, S), device=query.device), diagonal=S-L)
-    attn_weight = matmul(query, key.transpose(-2, -1)) * scale_factor
-    if is_causal:
-        attn_weight[:, :, mask == 0] = float("-inf")
-    if use_softmax1:
-        attn_weight = softmax_n(attn_weight.float(), n=1., dim=-1, dtype=softmax_dtype)
-    else:
-        attn_weight = softmax(attn_weight.float(), dim=-1, dtype=softmax_dtype)
-    return matmul(attn_weight, value)
