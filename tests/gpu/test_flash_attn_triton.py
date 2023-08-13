@@ -86,8 +86,8 @@ def test_flash_attention_analytic(device_name, sm_n, weight):
     expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name)
 
     assert_close(output_1b, output_0b, atol=atol, rtol=rtol)
-    assert_close(output_0b.sum(dim=0).sum(dim=-1), expected_b, atol=atol, rtol=rtol)
-    assert_close(output_1b.sum(dim=0).sum(dim=-1), expected_b, atol=atol, rtol=rtol)
+    assert_close(output_0b.sum(dim=0).sum(dim=-1)[0], expected_b, atol=atol, rtol=rtol)
+    assert_close(output_1b.sum(dim=0).sum(dim=-1)[0], expected_b, atol=atol, rtol=rtol)
 
     empty_cache()
     gc.collect()
