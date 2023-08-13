@@ -1,28 +1,33 @@
 # FlashAttention-with-Softmax1
 
-Using the Triton language to implement Flash Attention with Softmax_1. 
-Flash Attention computes the numerator and denominator of Attention separately, so all we need to do is add the "+1" term to the denominator.
-Note however that the +1 needs to be "shifted," see [#10](https://github.com/softmax1/softmax1/issues/10).
+Using the Triton language to implement Flash Attention with Softmax_n. 
+Flash Attention computes the numerator and denominator of Attention separately, so all we need to do is add the "+n" term to the denominator.
+Note however that the +n needs to be "shifted," see [#10](https://github.com/softmax1/softmax1/issues/10).
 
 ## Usage
-The main function is 
+The main function is
+
 ```python
-from src.flash_attn_triton_softmax1 import attention
+from src.flash_attn_triton import flash_attention_n
 ```
 Here are the signatures of the forward and backward methods
 ```python
-def forward(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, causal: bool = False, sm_scale: Optional[float] = None) -> torch.Tensor:
+def flash_attention_n(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, 
+                      causal: bool = False, sm_scale: Optional[float] = None, sm_n: Optional[float] = None
+                      ) -> torch.Tensor:
     """
-    Triton implementation of forward pass of Flash Attention with Softmax_1
+    Triton implementation of forward pass of Flash Attention with Softmax_n
 
     :param q: Query tensor; shape (N, ..., L, E).
     :param k: Key tensor; shape (N, ..., S, E).
     :param v: Value tensor; shape (N, ..., S, Ev).
     :param causal: If true, assumes causal attention masking.
     :param sm_scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
+    :param sm_n: Regularization parameter for the generalized softmax_n.
     :return: Attention output; shape (N, ..., L, Ev).
     """
 
+# to call the backward method to `flash_attention_n.backward()`
 def backward(do: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
     """
     Triton implementation of backward pass of Flash Attention with Softmax_1
@@ -38,8 +43,8 @@ Shapes:
 - E: embedding dimension of the query and key
 - Ev: embedding dimension of the value
 
-Gradients are of the loss function, $\phi$, with respect to a tensor. For example, given $t_{ijk}$:
-$$(\partial t)_{ijk} \equiv \frac{\partial \phi}{\partial t^{ijk}}$$.
+Gradients are of the loss function, $\phi$, with respect to a tensor. For example, given $t_{ijk}$
+$$(\partial t)_{ijk} \equiv \frac{\partial \phi}{\partial t^{ijk}}$$
 
 ## Limitations
 (These are all limitations of the "OG" algorithm I inheritied.)
@@ -64,8 +69,8 @@ triton-nightly==2.1.0.dev20230808020556
 - [Flash Attention paper](https://arxiv.org/abs/2205.14135)
 - [Code associated with paper](https://github.com/Dao-AILab/flash-attention/tree/main)
 - [Triton documenation](https://triton-lang.org/main/index.html)
-- [Triton Attention tutorial](https://github.com/openai/triton/blob/main/python/tutorials/06-fused-attention.py); This is the source for the "OG" code.
-- [MoasicBERT](https://github.com/mosaicml/examples/tree/845bfe23c77316264d5dd6e2a6b7c46cefa4519a/examples/benchmarks/bert); Benchmark for training BERT cheaply in part using Flash Attention
+- [Triton Attention tutorial](https://github.com/openai/triton/blob/main/python/tutorials/06-fused-attention.py) -- This is the source for the "OG" code.
+- [MoasicBERT](https://github.com/mosaicml/examples/tree/845bfe23c77316264d5dd6e2a6b7c46cefa4519a/examples/benchmarks/bert) -- Benchmark for training BERT cheaply in part using Flash Attention
 
 ## Contribute
 Feel free to suggest extensions, additional tests, etc. by raising an issue.

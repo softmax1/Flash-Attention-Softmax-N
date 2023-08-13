@@ -1,7 +1,8 @@
+from math import exp
 from typing import Optional, Tuple, Union, Iterable
 
 from pytest import fixture
-from torch import Tensor, empty
+from torch import Tensor, empty, ones
 from torch.cuda import is_available
 
 from src.functional import DType
@@ -23,3 +24,19 @@ def get_query_key_value(batch_size: Union[int, Iterable[int]],
 @fixture(scope='session')
 def device_name() -> str:
     return "cuda" if is_available() else "cpu"
+
+
+def attention_analytic_answer(N: int, L: int, S: int, E: int, Ev: int,
+                              scale: float, weight: float, softmax_n_param: float, device: Optional[str] = None
+                              ) -> Tensor:
+    answer_0 = weight * ones((N, L, Ev), device=device)
+    factor_n = S / (softmax_n_param * exp(-weight**2 * E * scale) + S)
+    return answer_0 * factor_n
+
+
+def attention_analytic_casual_answer(N: int, L: int, S: int, E: int, Ev: int,
+                                     scale: float, weight: float, softmax_n_param: float, device: Optional[str] = None
+                                     ) -> Tensor:
+    factors_n = [(ell + S - L) / (softmax_n_param * exp(-weight**2 * E * scale) + (ell + S - L)) for ell in range(1, L + 1)]
+    answer = N * Ev * weight * Tensor(factors_n).to(device)
+    return answer if device is None else answer.to(device)

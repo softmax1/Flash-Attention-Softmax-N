@@ -29,18 +29,19 @@ def max_fn(x, y):
 
 @triton.jit
 def _fwd_kernel(
-    Q, K, V, sm_scale,
-    L,
-    Out,
-    stride_qz, stride_qh, stride_qm, stride_qk,
-    stride_kz, stride_kh, stride_kn, stride_kk,
-    stride_vz, stride_vh, stride_vk, stride_vn,
-    stride_oz, stride_oh, stride_om, stride_on,
-    Z, H, N_CTX, P_SEQ,
-    BLOCK_M: tl.constexpr, BLOCK_DMODEL: tl.constexpr,
-    BLOCK_N: tl.constexpr,
-    IS_CAUSAL: tl.constexpr,
-):
+        Q, K, V, sm_scale,
+        L,
+        Out,
+        stride_qz, stride_qh, stride_qm, stride_qk,
+        stride_kz, stride_kh, stride_kn, stride_kk,
+        stride_vz, stride_vh, stride_vk, stride_vn,
+        stride_oz, stride_oh, stride_om, stride_on,
+        Z, H, N_CTX, P_SEQ,
+        BLOCK_M: tl.constexpr, BLOCK_DMODEL: tl.constexpr,
+        BLOCK_N: tl.constexpr,
+        IS_CAUSAL: tl.constexpr,
+        SM_N: tl.constexpr  # *** added by CWM ***
+    ):
     start_m = tl.program_id(0)
     off_hz = tl.program_id(1)
     q_offset = off_hz * stride_qh
@@ -110,7 +111,7 @@ def _fwd_kernel(
         K_block_ptr = tl.advance(K_block_ptr, (0, BLOCK_N))
         V_block_ptr = tl.advance(V_block_ptr, (BLOCK_N, 0))
     # write back l and m
-    acc = acc / (l_i[:, None] + tl.exp(-m_i[:, None]))  # *** modified by CWM ***
+    acc = acc / (SM_N * tl.exp(-m_i[:, None]) + l_i[:, None])  # *** modified by CWM ***
     l_ptrs = L + off_hz * N_CTX + offs_m
     tl.store(l_ptrs, m_i + tl.math.log2(l_i))
     # write back O
@@ -127,10 +128,10 @@ def _fwd_kernel(
 
 @triton.jit
 def _bwd_preprocess(
-    Out, DO,
-    Delta,
-    BLOCK_M: tl.constexpr, D_HEAD: tl.constexpr,
-):
+        Out, DO,
+        Delta,
+        BLOCK_M: tl.constexpr, D_HEAD: tl.constexpr,
+    ):
     off_m = tl.program_id(0) * BLOCK_M + tl.arange(0, BLOCK_M)
     off_n = tl.arange(0, D_HEAD)
     # load
@@ -144,19 +145,19 @@ def _bwd_preprocess(
 
 @triton.jit
 def _bwd_kernel(
-    Q, K, V, sm_scale, Out, DO,
-    DQ, DK, DV,
-    L,
-    D,
-    stride_qz, stride_qh, stride_qm, stride_qk,
-    stride_kz, stride_kh, stride_kn, stride_kk,
-    stride_vz, stride_vh, stride_vk, stride_vn,
-    Z, H, N_CTX, P_SEQ,
-    num_block_q, num_block_kv,
-    BLOCK_M: tl.constexpr, BLOCK_DMODEL: tl.constexpr,
-    BLOCK_N: tl.constexpr,
-    CAUSAL: tl.constexpr,
-):
+        Q, K, V, sm_scale, Out, DO,
+        DQ, DK, DV,
+        L,
+        D,
+        stride_qz, stride_qh, stride_qm, stride_qk,
+        stride_kz, stride_kh, stride_kn, stride_kk,
+        stride_vz, stride_vh, stride_vk, stride_vn,
+        Z, H, N_CTX, P_SEQ,
+        num_block_q, num_block_kv,
+        BLOCK_M: tl.constexpr, BLOCK_DMODEL: tl.constexpr,
+        BLOCK_N: tl.constexpr,
+        CAUSAL: tl.constexpr,
+    ):
     off_hz = tl.program_id(0)
     off_z = off_hz // H
     off_h = off_hz % H
@@ -237,7 +238,7 @@ def _bwd_kernel(
 empty = torch.empty(128, device="cuda")
 
 
-class _attention(torch.autograd.Function):
+class _FlashAttentionN(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx,
@@ -245,7 +246,8 @@ class _attention(torch.autograd.Function):
                 k: torch.Tensor,
                 v: torch.Tensor,
                 causal: bool = False,
-                sm_scale: Optional[float] = None
+                sm_scale: Optional[float] = None,
+                sm_n: Optional[float] = None
                 ) -> torch.Tensor:
         """
         Triton implementation of forward pass of Flash Attention with Softmax_1
@@ -264,6 +266,8 @@ class _attention(torch.autograd.Function):
         assert Lk in {16, 32, 64, 128}
         if sm_scale is None:
             sm_scale = 1 / math.sqrt(Lq)
+        if sm_n is None:
+            sm_n = 0.
         o = torch.empty_like(q)
         BLOCK_M = 128
         BLOCK_N = 64
@@ -283,7 +287,8 @@ class _attention(torch.autograd.Function):
             BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, BLOCK_DMODEL=Lk,
             IS_CAUSAL=causal,
             num_warps=num_warps,
-            num_stages=4)
+            num_stages=4,
+            SM_N=sm_n)
 
         ctx.save_for_backward(q, k, v, o, L)
         ctx.grid = grid
@@ -331,4 +336,22 @@ class _attention(torch.autograd.Function):
         return dq, dk, dv, None, None
 
 
-attention = _attention.apply
+def flash_attention_n(q: torch.Tensor,
+                      k: torch.Tensor,
+                      v: torch.Tensor,
+                      causal: bool = False,
+                      sm_scale: Optional[float] = None,
+                      sm_n: Optional[float] = None
+                      ) -> torch.Tensor:
+    """
+    Triton implementation of Flash Attention with Softmax_1
+
+    :param q: Query tensor; shape (N, ..., L, E).
+    :param k: Key tensor; shape (N, ..., S, E).
+    :param v: Value tensor; shape (N, ..., S, Ev).
+    :param causal: If true, assumes causal attention masking.
+    :param sm_scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
+    :param sm_n: Regularization parameter for the generalized softmax_n.
+    :return: Attention output; shape (N, ..., L, Ev).
+    """
+    return _FlashAttentionN.apply(q, k, v, causal, sm_scale, sm_n)
