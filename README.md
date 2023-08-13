@@ -4,13 +4,6 @@ Using the Triton language to implement Flash Attention with Softmax_n.
 Flash Attention computes the numerator and denominator of Attention separately, so all we need to do is add the "+n" term to the denominator.
 Note however that the +n needs to be "shifted," see [#10](https://github.com/softmax1/softmax1/issues/10).
 
-The backward pass does not need to be modified as
-$$ \vec{\nabla} S_n(\vec{x}) = S_n(\vec{x}) (1 - S_n(\vec{x})) \quad \forall n \in \mathbb{C}$$
-where $S_n$ is the generalized softmax with regularization parameter $n$.
-Setting $n=0$ gives the standard softmax. 
-The gradient is with respect to the input $\vec{x}$, and multiplication is element-wise on the right-hand side of the equation.
-
-
 ## Usage
 The main function is
 
