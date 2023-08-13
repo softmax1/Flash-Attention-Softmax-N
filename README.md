@@ -47,24 +47,26 @@ Shapes:
 Gradients are of the loss function, $\phi$, with respect to a tensor. For example, given $t_{ijk}$
 $$(\partial t)_{ijk} \equiv \frac{\partial \phi}{\partial t^{ijk}}$$
 
-## Limitations
-(These are all limitations of the "OG" algorithm I inheritied.)
+## Inheritied Limitations
+
 - Currently, no Triton implementation of Flash Attention, here or elsewhere, has dropout. In contrast, dropout is implemented in the CUDA version.
-- This implementation only works with `dtype=torch.float16` for the query, key, and value tensors.
+- This implementation only works with `dtype=torch.float16` for the query, key, and value tensors. See [this example](https://github.com/mosaicml/examples/blob/a18e2c0db226b7118ed7ebbaecd8edb57dc59335/examples/benchmarks/bert/src/bert_layers.py#L230) for how to proceed.
 - This implementation also expects there to be multiple attention heads. That is, the query, key, and value tensors must be 4-dimensional.
 - The embedding dimension of the query, key, and value all must be the same. Generally, the value embedding can be a difference size.
 
-## Testing
+## Testing / Novel Limitations
 The Triton language is not available on CPUs.
 Therefore, we need to use a GPU to fully test the implementation.
-
-NOTE: The tests using the causal mask with softmax_1 did not pass because approximately 0.1% of the elements of the output did not agree with their expected values to an absolute precison of 1e-2. 
 
 My testing used the following versions:
 ```
 triton==2.0.0.post1
 triton-nightly==2.1.0.dev20230808020556
 ```
+
+Given the current implementation, I recommend the following limits on Flash Attention parameters:
+- Without a casual mask: $n \leq 3$, softmax $scale \leq 0.4$
+- With a casual mask: $n \leq 10^{-3}$, $scale \leq 1 / \sqrt{E}$
 
 ## Links
 - [Flash Attention paper](https://arxiv.org/abs/2205.14135)
