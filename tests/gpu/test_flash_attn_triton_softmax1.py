@@ -6,7 +6,7 @@ from torch import float16, randn_like, ones, Tensor
 from torch.cuda import empty_cache
 from torch.testing import assert_close
 
-from src.functional import slow_attention, slow_attention_redux
+from src.functional import slow_attention_n, slow_attention_redux
 from src.flash_attn_triton_softmax1 import attention
 from tests.common import get_query_key_value, device_name
 
@@ -25,7 +25,7 @@ def test_attention(device_name, dtype, is_causal, scale):
     # Test forward step,
     query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=dtype)
     actual = attention(query, key, value, is_causal, scale)
-    expected = slow_attention(query, key, value, is_causal=is_causal, scale=scale, use_softmax1=True)
+    expected = slow_attention_n(query, key, value, is_causal=is_causal, scale=scale, n=1.)
     assert_close(actual, expected, atol=atol, rtol=rtol)
 
     # and backward step.
@@ -97,7 +97,7 @@ def test_simple_case(device_name, weight):
     key = weight * ones((N, 1, S, E), device=device_name, dtype=float16)
     value = weight * ones((N, 1, S, Ev), device=device_name, dtype=float16)
 
-    output_0a = slow_attention(query, key, value, scale=scale, use_softmax1=True)
+    output_0a = slow_attention_n(query, key, value, scale=scale, n=1.)
     output_1a = attention(query, key, value, False, scale)
 
     expected_a_shape = weight * ones((N, 1, L, Ev), device=device_name, dtype=float16)
@@ -110,7 +110,7 @@ def test_simple_case(device_name, weight):
     atol = 0
     rtol = 2e-3
 
-    output_0b = slow_attention(query, key, value, scale=scale, is_causal=True, use_softmax1=True)
+    output_0b = slow_attention_n(query, key, value, scale=scale, is_causal=True, n=1.)
     output_1b = attention(query, key, value, True, scale)
 
     expected_b_factors = [(ell + S - L) / (exp(-weight**2 * E * scale) + (ell + S - L)) for ell in range(1, L + 1)]

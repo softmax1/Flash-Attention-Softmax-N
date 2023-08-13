@@ -6,7 +6,7 @@ from torch import float16, randn_like
 from torch.cuda import empty_cache
 from torch.testing import assert_close
 
-from src.functional import slow_attention
+from src.functional import slow_attention_n
 from src.flash_attn_triton_og import attention
 from tests.common import get_query_key_value, device_name
 
@@ -24,7 +24,7 @@ def test_attention(device_name, dtype, is_causal):
     # Test forward step,
     query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=dtype)
     actual = attention(query, key, value, is_causal, 1 / sqrt(query.size(-1)))
-    expected = slow_attention(query, key, value, is_causal=is_causal)
+    expected = slow_attention_n(query, key, value, is_causal=is_causal)
     assert_close(actual, expected, atol=atol, rtol=rtol)
 
     # and backward step.
