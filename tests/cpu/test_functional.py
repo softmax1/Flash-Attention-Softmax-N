@@ -1,12 +1,10 @@
-from math import exp
-
 from pytest import approx, raises, mark
 from torch import Tensor, log, float16, randn_like, ones
 from torch.nn.functional import scaled_dot_product_attention
 from torch.testing import assert_close
 
 from src.functional import softmax_n, slow_attention_n, slow_attention_redux
-from tests.common import get_query_key_value, device_name
+from tests.common import get_query_key_value, device_name, attention_analytic_answer, attention_analytic_casual_answer
 
 
 @mark.parametrize("n", [0., 1., 1e-3, 1e-6, 4.])
@@ -39,11 +37,11 @@ def test_softmax_n(device_name, n):
     assert output_2.sum() == 1
 
 
-def test_slow_attention(device_name):
+def test_slow_attention_0(device_name):
     """
     Comparing my Attention implementation to torch's `scaled_dot_product_attention`.
     It's less than ideal though because that is an experimental function.
-    The assumption is if my attention implementation is correct for softmax_0, and my softmax_1 implementation is correct (see `test_softmax_1`), then my implementation of attention with softmax_1 will also be correct.
+    The assumption is if my attention implementation is correct for softmax_0, and my softmax_n implementation is correct (see `test_softmax_n`), then my implementation of attention with softmax_n will also be correct.
     """
     batch_size = 2
     max_sequence_len = 3
@@ -172,8 +170,12 @@ def test_slow_attention_redux(device_name):
     assert_close(actual_3, expected_3, atol=atol, rtol=rtol)
 
 
+@mark.parametrize("sm_n", [0., 1., 1e-3, 1e-6, 4.])
 @mark.parametrize("weight", [10, 1, 0.1, -0.1, -1, 10])
-def test_simple_case(device_name, weight):
+def test_slow_attention_n(device_name, sm_n, weight):
+    """
+    When the elements of the input tensors Q, K, & V all have the same value, there is a closed-form expression for the output of Attention w/ or w/o a casual mask.
+    """
     N = 2
     L = 3
     S = 4
@@ -185,19 +187,10 @@ def test_simple_case(device_name, weight):
     key = weight * ones((N, S, E), device=device_name)
     value = weight * ones((N, S, Ev), device=device_name)
 
-    output_0a = slow_attention_n(query, key, value, scale=scale)
-    output_1a = slow_attention_n(query, key, value, scale=scale, n=1.)
+    output_a = slow_attention_n(query, key, value, scale=scale, n=sm_n)
+    expected_a = attention_analytic_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name)
+    assert_close(output_a, expected_a)
 
-    expected_0a = weight * ones((N, L, Ev), device=device_name)
-    expected_1a_factor = S * exp(weight**2 * E * scale) / (1 + S * exp(weight**2 * E * scale))
-
-    assert_close(output_0a, expected_0a)
-    assert_close(output_1a, expected_0a * expected_1a_factor)
-
-    output_0b = slow_attention_n(query, key, value, scale=scale, is_causal=True)
-    output_1b = slow_attention_n(query, key, value, scale=scale, is_causal=True, n=1.)
-
-    expected_1b_factors = [(l + S - L) * exp(weight**2 * E * scale) / (1 + (l + S - L) * exp(weight**2 * E * scale)) for l in range(1, L + 1)]
-
-    assert_close(output_0b, expected_0a)
-    assert_close(output_1b.sum(dim=0).sum(dim=-1), N * Ev * weight * Tensor(expected_1b_factors).to(device_name))
+    output_b = slow_attention_n(query, key, value, scale=scale, is_causal=True, n=sm_n)
+    expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name)
+    assert_close(output_b.sum(dim=0).sum(dim=-1), expected_b)

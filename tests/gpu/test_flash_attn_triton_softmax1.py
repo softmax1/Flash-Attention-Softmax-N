@@ -1,14 +1,13 @@
 import gc
-from math import exp
 
 from pytest import mark
-from torch import float16, randn_like, ones, Tensor
+from torch import float16, randn_like, ones
 from torch.cuda import empty_cache
 from torch.testing import assert_close
 
 from src.functional import slow_attention_n, slow_attention_redux
 from src.flash_attn_triton_softmax1 import attention
-from tests.common import get_query_key_value, device_name
+from tests.common import get_query_key_value, device_name, attention_analytic_answer, attention_analytic_casual_answer
 
 
 @mark.parametrize("dtype", [float16])
@@ -100,9 +99,7 @@ def test_simple_case(device_name, weight):
     output_0a = slow_attention_n(query, key, value, scale=scale, n=1.)
     output_1a = attention(query, key, value, False, scale)
 
-    expected_a_shape = weight * ones((N, 1, L, Ev), device=device_name, dtype=float16)
-    expected_a_factor = S / (exp(-weight**2 * E * scale) + S)
-    expected_a = expected_a_shape * expected_a_factor
+    expected_a = attention_analytic_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=1., device=device_name)
 
     assert_close(output_0a, expected_a, atol=atol, rtol=rtol)
     assert_close(output_1a, expected_a, atol=atol, rtol=rtol)
@@ -113,8 +110,7 @@ def test_simple_case(device_name, weight):
     output_0b = slow_attention_n(query, key, value, scale=scale, is_causal=True, n=1.)
     output_1b = attention(query, key, value, True, scale)
 
-    expected_b_factors = [(ell + S - L) / (exp(-weight**2 * E * scale) + (ell + S - L)) for ell in range(1, L + 1)]
-    expected_b = N * Ev * weight * Tensor([expected_b_factors]).to(device=device_name, dtype=float16)
+    expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=1., device=device_name)
 
     assert_close(output_1b, output_0b, atol=atol, rtol=rtol)
     assert_close(output_0b.sum(dim=0).sum(dim=-1), expected_b, atol=atol, rtol=rtol)
