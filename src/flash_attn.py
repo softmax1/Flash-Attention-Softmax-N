@@ -82,7 +82,7 @@ def flash_attention_n(
         default_scale = 1 / sqrt(query.shape[-1])
         query = query * (scale / default_scale)
 
-    batch, heads, q_len, _, k_len, is_cuda, device = *query.shape, key.shape[-2], query.is_cuda, query.device
+    batch, heads, q_len, _, k_len, is_cuda, device, dtype = *query.shape, key.shape[-2], query.is_cuda, query.device, query.dtype
 
     if attn_mask is not None:
         assert attn_mask.ndim == 4
@@ -95,12 +95,12 @@ def flash_attention_n(
 
     # the built-in argument `is_causal` of `scaled_dot_product_attention` appears to not work for $n > 0$, so ensure that a causal mask gets added to attn_mask or attn_bias
     if is_causal and attn_bias is None:
-        attn_bias = zeros((heads, q_len, k_len), device=device)
+        attn_bias = zeros((heads, q_len, k_len), device=device, dtype=dtype)
 
     if attn_bias is not None:
         attn_bias = rearrange(attn_bias, 'h i j -> 1 h i j').expand(batch, heads, -1, -1)
 
-        mask_value = -finfo(query.dtype).max
+        mask_value = -finfo(dtype).max
 
         if attn_mask is not None:
             attn_bias = attn_bias.masked_fill(~attn_mask, mask_value // 2)
