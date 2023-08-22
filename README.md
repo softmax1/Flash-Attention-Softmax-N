@@ -84,8 +84,9 @@ Beyond that, the query tensor must be four-dimensional, but the key and value te
 from src.flash_attn import flash_attention_n
 
 def flash_attention_n(query: Tensor, key: Tensor, value: Tensor,
-                      softmax_n_param: Optional[int] = None, scale: Optional[float] = None, dropout_p: float = 0.,
-                      attn_mask: Optional[Tensor] = None, attn_bias: Optional[Tensor] = None, is_causal: bool = False
+                      softmax_n_param: Optional[int] = None, scale: Optional[float] = None, 
+                      dropout_p: float = 0., attn_mask: Optional[Tensor] = None, 
+                      attn_bias: Optional[Tensor] = None, is_causal: bool = False
                       ) -> Tensor:
     """
     CUDA implementation of Flash Attention with Softmax_n inspired by x-transformers
