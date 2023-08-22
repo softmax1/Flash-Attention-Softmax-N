@@ -1,5 +1,5 @@
 from pytest import mark
-from torch import randn_like, ones, zeros
+from torch import randn_like, ones
 from torch.testing import assert_close
 
 from src.flash_attn import flash_attention_n
@@ -87,8 +87,6 @@ def test_flash_attention_analytic(device_name, n, weight):
     rtol = 2e-3
 
     output_0b = slow_attention_n(query, key, value, scale=scale, is_causal=True, n=n)
-    # attn_bias = zeros((1, L, S), device=device_name)
-    # output_1b = flash_attention_n(query, key, value, scale=scale, is_causal=True, softmax_n_param=n, attn_bias=attn_bias)
     output_1b = flash_attention_n(query, key, value, scale=scale, is_causal=True, softmax_n_param=n)
 
     expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=n, device=device_name, dtype=query.dtype)
