@@ -23,12 +23,6 @@ def test_flash_attention_n(device_name, n, scale, dropout, is_causal):
     query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
     expected = slow_attention_n(query, key, value, n=n, scale=scale, dropout_p=dropout, is_causal=is_causal)
     actual = flash_attention_n(query, key, value, softmax_n_param=n, scale=scale, dropout_p=dropout, is_causal=is_causal)
-
-    if is_causal and n > 0:
-        print(n, scale, dropout, is_causal)
-        print(expected)
-        print(actual)
-
     if dropout > 0.:
         assert isinstance(actual.sum().item(), float) != 0 and isinstance(expected.sum().item(), float)
     else:
