@@ -74,8 +74,10 @@ Given the current implementation, I recommend the following limits on Flash Atte
 The CUDA implementation of Softmax_n is inspired by [x-transformers](https://github.com/lucidrains/x-transformers/blob/6867e9ac8a93f4844d70208c23cfd50cbc48485c/x_transformers/attend.py#L133).
 It works with causal masking and dropout.
 It also allows for an attention bias to be based as in ALiBi.
-I still need to test it with different datatypes.
-Its main limitation is that _n_ must be an integer, whereas in the Triton version, _n_ can be a real number.
+You can use float32, float16, or bfloat16.
+The absolute tolerances I used in testing for the three datatypes were 1e-3, 1e-2, and 5e-2, respectively.
+Typically, the looser tolerance for fp16 and bf16 were only needed for a tiny fraction, ~1e-4,  of the elements of the output tensor.
+The main limitation of this implementation is that _n_ must be an integer, whereas in the Triton version, _n_ can be a real number.
 Beyond that, the query tensor must be four-dimensional, but the key and value tensors can be 3- or 4-d.
 
 ```python
