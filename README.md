@@ -48,14 +48,14 @@ Shapes:
 Gradients are of the loss function, $\phi$, with respect to a tensor. For example, given $t_{ijk}$
 $$(\partial t)_{ijk} \equiv \frac{\partial \phi}{\partial t^{ijk}}$$
 
-## Inheritied Limitations
+### Inheritied Limitations
 
 - Currently, no Triton implementation of Flash Attention, here or elsewhere, has dropout. In contrast, dropout is implemented in the CUDA version.
 - This implementation only works with `dtype=torch.float16` for the query, key, and value tensors. See [this example](https://github.com/mosaicml/examples/blob/a18e2c0db226b7118ed7ebbaecd8edb57dc59335/examples/benchmarks/bert/src/bert_layers.py#L230) for how to proceed.
 - This implementation also expects there to be multiple attention heads. That is, the query, key, and value tensors must be 4-dimensional.
 - The embedding dimension of the query, key, and value all must be the same. Generally, the value embedding can be a difference size.
 
-## Testing / Novel Limitations
+### Testing / Novel Limitations
 The Triton language is not available on CPUs.
 Therefore, we need to use a GPU to fully test the implementation.
 
