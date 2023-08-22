@@ -1,11 +1,12 @@
 # FlashAttention-with-Softmax1
 
-Using the Triton language to implement Flash Attention with Softmax_n. 
+Triton and CUDA implementations Flash Attention with Softmax_n.
+
+## Trition
 Flash Attention computes the numerator and denominator of Attention separately, so all we need to do in the forward pass is add the "+n" term to the denominator.
 Note however that the +n needs to be "shifted," see [#10](https://github.com/softmax1/softmax1/issues/10).
 For the backward pass we need to specify that no gradient should be computed for our parameter n.
 
-## Usage
 The main function is
 
 ```python
@@ -67,6 +68,38 @@ triton-nightly==2.1.0.dev20230808020556
 Given the current implementation, I recommend the following limits on Flash Attention parameters:
 - Without a casual mask: $n \leq 3$, softmax $scale \leq 0.4$
 - With a casual mask: $n \leq 10^{-3}$, $scale \leq 1 / \sqrt{E}$
+
+## CUDA
+
+The CUDA implementation of Softmax_n is inspired by [x-transformers](https://github.com/lucidrains/x-transformers/blob/6867e9ac8a93f4844d70208c23cfd50cbc48485c/x_transformers/attend.py#L133).
+It works with causal masking and dropout.
+It also allows for an attention bias to be based as in ALiBi.
+I still need to test it with different datatypes.
+Its main limitation is that _n_ must be an integer, whereas in the Triton version, _n_ can be a real number.
+Beyond that, the query tensor must be four-dimensional, but the key and value tensors can be 3- or 4-d.
+
+```python
+from src.flash_attn import flash_attention_n
+
+def flash_attention_n(query: Tensor, key: Tensor, value: Tensor,
+                      softmax_n_param: Optional[int] = None, scale: Optional[float] = None, dropout_p: float = 0.,
+                      attn_mask: Optional[Tensor] = None, attn_bias: Optional[Tensor] = None, is_causal: bool = False
+                      ) -> Tensor:
+    """
+    CUDA implementation of Flash Attention with Softmax_n inspired by x-transformers
+    :param query: Query tensor; shape (N, ..., L, E).
+    :param key: Key tensor; shape (N, ..., S, E).
+    :param value: Value tensor; shape (N, ..., S, Ev).
+    :param softmax_n_param: Regularization parameter for the generalized softmax_n.
+    :param scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
+    :param dropout_p: Dropout probability; if greater than 0.0, dropout is applied
+    :param attn_mask: Attention mask; shape (N, ..., L, S)
+    :param attn_bias: ALiBi positional bias; shape(..., L, S)
+    :param is_causal: If true, assumes causal attention masking.
+    :return: Attention output; shape (N, ..., L, Ev).
+    """
+```
+
 
 ## Links
 - [Flash Attention paper](https://arxiv.org/abs/2205.14135)
