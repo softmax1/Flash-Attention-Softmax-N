@@ -4,7 +4,7 @@ CUDA and Triton implementations of [flash attention](https://arxiv.org/abs/2205.
 
 [Attention is Off By One](https://www.evanmiller.org/attention-is-off-by-one.html) hypothesized that using softmax1 in the attention mechanism will reduce the number of outliers in the activations and weights of a transformer model.
 SoftmaxN is defined as
-$$\text(softmax)_n(x_i) = \frac{\exp(x_i)}{n + \sum_j \exp(x_j)}$$
+$$\text{softmax}_n(x_i) = \frac{e^{x_i}}{n + \sum_j e^{x_j}}$$
 and is non-trivial to implement efficiently even in numpy or torch, see `softmax_n` below.
 In the spirit of the flash attention paper, further gains can be made by considering the whole attention function instead of just the softmaxN subfunction.
 
