@@ -2,12 +2,12 @@ from setuptools import setup, find_packages
 
 setup(
   name='flash-attention-softmax-n',
-  packages=find_packages(exclude=['tests']),
+  packages=find_packages(exclude=['tests*']),
   version='0.1.0',
   license='GPLv3',
   description='CUDA and Triton implementations of Flash Attention with SoftmaxN.',
   author='Christopher W. Murphy',
-  author_email='murphtron5000[at]gmail[dot]com',
+  author_email='murphtron5000@gmail.com',
   url='https://github.com/softmax1/Flash-Attention-Softmax-N',
   python_requires=">=3.9",
   long_description_content_type='text/markdown',
@@ -22,7 +22,7 @@ setup(
   ],
   extras_require={
         "triton": [
-          "triton==2.0.0.post1",
+          "triton>=2.0.0",
           "triton-nightly @ https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/"
         ],
     },
