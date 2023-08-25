@@ -1,9 +1,9 @@
 from pytest import mark
-from torch import randn_like, ones
+from torch import randn_like, ones, float32, bfloat16
 from torch.testing import assert_close
 
-from src.flash_attn import flash_attention_n
-from src.functional import slow_attention_n
+from flash_attention_softmax_n.flash_attn import flash_attention_n
+from flash_attention_softmax_n.functional import slow_attention_n
 from tests.common import get_query_key_value, device_name, attention_analytic_answer, attention_analytic_casual_answer
 
 
@@ -11,17 +11,17 @@ from tests.common import get_query_key_value, device_name, attention_analytic_an
 @mark.parametrize("scale", [None, 0.1, 0.5])
 @mark.parametrize("dropout", [0., 0.2])
 @mark.parametrize("is_causal", [False, True])
-def test_flash_attention_n(device_name, n, scale, dropout, is_causal):
+@mark.parametrize("dtype, atol", [(float32, 1e-6), (bfloat16, 2e-2)])
+def test_flash_attention_n(device_name, n, scale, dropout, is_causal, dtype, atol):
     batch_size = (2, 1)
     max_sequence_len = 3
     embed_dimension = 8
 
-    atol = 1e-6
     rtol = 0.
 
     # Test forward step,
-    query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
-    expected = slow_attention_n(query, key, value, n=n, scale=scale, dropout_p=dropout, is_causal=is_causal)
+    query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=dtype)
+    expected = slow_attention_n(query, key, value, softmax_n_param=n, scale=scale, dropout_p=dropout, is_causal=is_causal)
     actual = flash_attention_n(query, key, value, softmax_n_param=n, scale=scale, dropout_p=dropout, is_causal=is_causal)
     if dropout > 0.:
         assert isinstance(actual.sum().item(), float) != 0 and isinstance(expected.sum().item(), float)
@@ -68,7 +68,7 @@ def test_flash_attention_analytic(device_name, n, weight):
     key = weight * ones((N, 1, S, E), device=device_name)
     value = weight * ones((N, 1, S, Ev), device=device_name)
 
-    output_0a = slow_attention_n(query, key, value, scale=scale, n=n)
+    output_0a = slow_attention_n(query, key, value, scale=scale, softmax_n_param=n)
     output_1a = flash_attention_n(query, key, value, scale=scale, softmax_n_param=n)
 
     expected_a = attention_analytic_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=n, device=device_name, dtype=query.dtype)
@@ -80,7 +80,7 @@ def test_flash_attention_analytic(device_name, n, weight):
     atol = 0
     rtol = 2e-3
 
-    output_0b = slow_attention_n(query, key, value, scale=scale, is_causal=True, n=n)
+    output_0b = slow_attention_n(query, key, value, scale=scale, is_causal=True, softmax_n_param=n)
     output_1b = flash_attention_n(query, key, value, scale=scale, is_causal=True, softmax_n_param=n)
 
     expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=n, device=device_name, dtype=query.dtype)

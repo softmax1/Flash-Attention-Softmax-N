@@ -336,22 +336,22 @@ class _FlashAttentionN(torch.autograd.Function):
         return dq, dk, dv, None, None, None
 
 
-def flash_attention_n(q: torch.Tensor,
-                      k: torch.Tensor,
-                      v: torch.Tensor,
-                      causal: bool = False,
-                      sm_scale: Optional[float] = None,
-                      sm_n: Optional[float] = None
-                      ) -> torch.Tensor:
+def flash_attention_n_triton(query: torch.Tensor,
+                             key: torch.Tensor,
+                             value: torch.Tensor,
+                             is_causal: bool = False,
+                             scale: Optional[float] = None,
+                             softmax_n_param: Optional[float] = None
+                             ) -> torch.Tensor:
     """
     Triton implementation of Flash Attention with Softmax_1
 
-    :param q: Query tensor; shape (N, ..., L, E).
-    :param k: Key tensor; shape (N, ..., S, E).
-    :param v: Value tensor; shape (N, ..., S, Ev).
-    :param causal: If true, assumes causal attention masking.
-    :param sm_scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
-    :param sm_n: Regularization parameter for the generalized softmax_n.
+    :param query: Query tensor; shape (N, ..., L, E).
+    :param key: Key tensor; shape (N, ..., S, E).
+    :param value: Value tensor; shape (N, ..., S, Ev).
+    :param is_causal: If true, assumes causal attention masking.
+    :param scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
+    :param softmax_n_param: Regularization parameter for the generalized softmax_n.
     :return: Attention output; shape (N, ..., L, Ev).
     """
-    return _FlashAttentionN.apply(q, k, v, causal, sm_scale, sm_n)
+    return _FlashAttentionN.apply(query, key, value, is_causal, scale, softmax_n_param)

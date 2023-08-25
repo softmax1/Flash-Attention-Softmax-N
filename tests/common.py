@@ -5,7 +5,7 @@ from pytest import fixture
 from torch import Tensor, empty, ones
 from torch.cuda import is_available
 
-from src.functional import DType
+from flash_attention_softmax_n.functional import DType
 
 
 def get_query_key_value(batch_size: Union[int, Iterable[int]],

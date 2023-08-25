@@ -1,9 +1,9 @@
 from pytest import approx, raises, mark
-from torch import Tensor, log, float16, randn_like, ones
+from torch import Tensor, log, float16, randn_like, ones, bfloat16
 from torch.nn.functional import scaled_dot_product_attention
 from torch.testing import assert_close
 
-from src.functional import softmax_n, slow_attention_n
+from flash_attention_softmax_n.functional import softmax_n, slow_attention_n
 from tests.common import get_query_key_value, device_name, attention_analytic_answer, attention_analytic_casual_answer
 
 
@@ -54,13 +54,19 @@ def test_slow_attention_0(device_name):
     if "cuda" in device_name:
         actual_0 = slow_attention_n(query_0, key_0, value_0)
         expected_0 = scaled_dot_product_attention(query_0, key_0, value_0)
-        atol_f16 = atol**0.5
+        atol_f16 = 1e-3
         assert_close(actual_0, expected_0, atol=atol_f16, rtol=rtol)
     else:
         with raises(RuntimeError):
             slow_attention_n(query_0, key_0, value_0)
         with raises(RuntimeError):
             scaled_dot_product_attention(query_0, key_0, value_0)
+
+    query_0b, key_0b, value_0b = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=bfloat16)
+    actual_0b = slow_attention_n(query_0b, key_0b, value_0b)
+    expected_0b = scaled_dot_product_attention(query_0b, key_0b, value_0b)
+    atol_bf16 = 1e-2
+    assert_close(actual_0b, expected_0b, atol=atol_bf16, rtol=rtol)
 
     # Test forward step,
     query_1, key_1, value_1 = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name)
@@ -134,10 +140,10 @@ def test_slow_attention_n(device_name, sm_n, weight):
     key = weight * ones((N, S, E), device=device_name)
     value = weight * ones((N, S, Ev), device=device_name)
 
-    output_a = slow_attention_n(query, key, value, scale=scale, n=sm_n)
+    output_a = slow_attention_n(query, key, value, scale=scale, softmax_n_param=sm_n)
     expected_a = attention_analytic_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name, dtype=query.dtype)
     assert_close(output_a, expected_a)
 
-    output_b = slow_attention_n(query, key, value, scale=scale, is_causal=True, n=sm_n)
+    output_b = slow_attention_n(query, key, value, scale=scale, is_causal=True, softmax_n_param=sm_n)
     expected_b = attention_analytic_casual_answer(N, L, S, E, Ev, scale, weight, softmax_n_param=sm_n, device=device_name, dtype=query.dtype)
     assert_close(output_b.sum(dim=0).sum(dim=-1), expected_b)

@@ -12,7 +12,7 @@ else:
     DType = int
 
 
-def softmax_n(input: Tensor, n: Optional[float] = None, dim: Optional[int] = None, dtype: Optional[DType] = None) -> Tensor:
+def softmax_n(x: Tensor, n: Optional[float] = None, dim: Optional[int] = None, dtype: Optional[DType] = None) -> Tensor:
     """
     $\text(softmax)_n(x_i) = exp(x_i) / (n + \sum_j exp(x_j))$
 
@@ -21,8 +21,8 @@ def softmax_n(input: Tensor, n: Optional[float] = None, dim: Optional[int] = Non
     """
     if n is None:
         n = 0.
-    shift = input.max(dim=dim, keepdim=True).values.detach()
-    numerator = exp(input - shift)
+    shift = x.max(dim=dim, keepdim=True).values.detach()
+    numerator = exp(x - shift)
     output = numerator / (n * exp(-shift) + numerator.sum(dim=dim, keepdim=True))
     return output if dtype is None else output.type(dtype=dtype)
 
@@ -34,7 +34,7 @@ def slow_attention_n(query: Tensor,
                      dropout_p: float = 0.0,
                      is_causal: bool = False,
                      scale: Optional[float] = None,
-                     n: Optional[float] = None,
+                     softmax_n_param: Optional[float] = None,
                      softmax_dtype: Optional[DType] = None,
                      ) -> Tensor:
     """
@@ -52,7 +52,7 @@ def slow_attention_n(query: Tensor,
     :param dropout_p: Dropout probability; if greater than 0.0, dropout is applied
     :param is_causal: If true, assumes causal attention masking and errors if both attn_mask and is_causal are set.
     :param scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
-    :param n: Regularization parameter for the generalized softmax_n
+    :param softmax_n_param: Regularization parameter for the generalized softmax_n
     :param softmax_dtype: The datatype for the output from the softmax operation.
     :return: Attention output; shape (N, ..., L, Ev).
 
@@ -63,8 +63,8 @@ def slow_attention_n(query: Tensor,
     - E: embedding dimension of the query and key
     - Ev: embedding dimension of the value
     """
-    if n is None:
-        n = 0.
+    if softmax_n_param is None:
+        softmax_n_param = 0.
     if softmax_dtype is None:
         softmax_dtype = query.dtype
 
@@ -84,6 +84,6 @@ def slow_attention_n(query: Tensor,
             attn_bias += attn_mask
     attn_weight = query @ key.transpose(-2, -1) * scale_factor
     attn_weight += attn_bias
-    attn_weight = softmax_n(attn_weight, n=n, dim=-1, dtype=softmax_dtype)
+    attn_weight = softmax_n(attn_weight, n=softmax_n_param, dim=-1, dtype=softmax_dtype)
     attn_weight = dropout(attn_weight, dropout_p, train=True)
     return attn_weight @ value

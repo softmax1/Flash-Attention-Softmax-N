@@ -1,116 +1,126 @@
-# FlashAttention-with-Softmax1
+# Flash-Attention-Softmax-N
 
-Triton and CUDA implementations Flash Attention with Softmax_n.
+CUDA and Triton implementations of [flash attention](https://arxiv.org/abs/2205.14135) with softmaxN.
 
-## Trition
-Flash Attention computes the numerator and denominator of Attention separately, so all we need to do in the forward pass is add the "+n" term to the denominator.
-Note however that the +n needs to be "shifted," see [#10](https://github.com/softmax1/softmax1/issues/10).
-For the backward pass we need to specify that no gradient should be computed for our parameter n.
+[Attention is Off By One](https://www.evanmiller.org/attention-is-off-by-one.html) hypothesized that using softmax1 in the attention mechanism will reduce the number of outliers in the activations and weights of a transformer model.
+SoftmaxN is defined as
+$$\text(softmax)_n(x_i) = exp(x_i) / (n + \sum_j exp(x_j))$$
+and is non-trivial to implement efficiently even in numpy or torch, see `softmax_n` below.
+In the spirit of the flash attention paper, further gains can be made by considering the whole attention function instead of just the softmaxN subfunction.
 
-The main function is
+|              Feature / Function              | `flash_attention_n` |    `flash_attention_n_triton`    | `slow_attention_n` |
+|:--------------------------------------------:|:-------------------:|:--------------------------------:|:------------------:|
+|               CPU-compatible?                |         Yes         |                No                |        Yes         |
+|          Real or Integer valued $n$          |       Integer       |               Real               |        Real        |
+|    Datatype(s) natively supported on GPU     |  fp32, fp16, bf16   |        fp16 (*see below)         |  fp32, fp16, bf16  |
+|     Datatypes natively supported on CPU      |     fp32, bf16      |               n/a                |     fp32, bf16     |
+|                   Dropout?                   |         Yes         |                No                |        Yes         |
+|                 Causal Mask?                 |         Yes         | only tested for $n \leq 10^{-3}$ |        Yes         |
+|            Attention Bias (ALiBi)            |         Yes         |                No                |         No         |
+|                Attention Mask                |         Yes         |                No                |        Yes         |
+|          supports `query.ndim < 4`           |         No          |                No                |        Yes         |
+| supports `key.ndim < 4` and `value.ndim < 4` |         Yes         |                No                |        Yes         |
+| requries `key.shape[-1] == value.shape[-1]`  |         No          |               Yes                |         No         |
+
+## Install
+```bash
+$ pip install flash-attention-softmax-n
+```
+Optionally install the Triton implementation
+```bash
+$ pip install flash-attention-softmax-n[triton]
+```
+
+## Usage
+
+### CUDA
+The recommendation function to use for integer-values of _n_ with or without a GPU.
+You'll probably need an A100 to reap the full benefit though.
+This implementation was inspired by [x-transformers](https://github.com/lucidrains/x-transformers/tree/main).
+It uses `torch.nn.functional.scaled_dot_product_attention` on the backend, which requires `torch>=2.0.0`.
 
 ```python
-from src.flash_attn_triton import flash_attention_n
-```
-Here are the signatures of the forward and backward methods
-```python
-def flash_attention_n(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, 
-                      causal: bool = False, sm_scale: Optional[float] = None, sm_n: Optional[float] = None
-                      ) -> torch.Tensor:
-    """
-    Triton implementation of forward pass of Flash Attention with Softmax_n
+import torch
+from flash_attention_softmax_n import flash_attention_n
 
-    :param q: Query tensor; shape (N, ..., L, E).
-    :param k: Key tensor; shape (N, ..., S, E).
-    :param v: Value tensor; shape (N, ..., S, Ev).
-    :param causal: If true, assumes causal attention masking.
-    :param sm_scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
-    :param sm_n: Regularization parameter for the generalized softmax_n.
-    :return: Attention output; shape (N, ..., L, Ev).
-    """
+softmax_n_param = 1
+query = torch.randn((6, 1, 1024, 64))
+key = torch.randn((6, 1152, 64))
+value = torch.randn((6, 1152, 32))
 
-# to call the backward method to `flash_attention_n.backward()`
-def backward(do: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
-    """
-    Triton implementation of backward pass of Flash Attention with Softmax_1
-    :param do: Output Gradient tensor; shape (N, ..., L, Ev). $\partial \phi / \partial \vec{o}$ where $\phi$ is the loss function
-    :return: Gradients of the Query, Key, and Value tensors along with two null values.
-    """
+attn = flash_attention_n(
+    query=query,
+    key=key,
+    value=value,
+    softmax_n_param=softmax_n_param,
+    scale=None,
+    dropout_p=0.,
+    attn_mask=None,
+    attn_bias=None,
+    is_causal=False
+)
 ```
 
-Shapes:
-- N: batch size. (N, ...) indicates the effective batch size could span multiple dimensions, e.g. the batch size and the number of attention heads
-- S: source sequence length
-- L: target sequence length
-- E: embedding dimension of the query and key
-- Ev: embedding dimension of the value
-
-Gradients are of the loss function, $\phi$, with respect to a tensor. For example, given $t_{ijk}$
-$$(\partial t)_{ijk} \equiv \frac{\partial \phi}{\partial t^{ijk}}$$
-
-### Inheritied Limitations
-
-- Currently, no Triton implementation of Flash Attention, here or elsewhere, has dropout. In contrast, dropout is implemented in the CUDA version.
-- This implementation only works with `dtype=torch.float16` for the query, key, and value tensors. See [this example](https://github.com/mosaicml/examples/blob/a18e2c0db226b7118ed7ebbaecd8edb57dc59335/examples/benchmarks/bert/src/bert_layers.py#L230) for how to proceed.
-- This implementation also expects there to be multiple attention heads. That is, the query, key, and value tensors must be 4-dimensional.
-- The embedding dimension of the query, key, and value all must be the same. Generally, the value embedding can be a difference size.
-
-### Testing / Novel Limitations
-The Triton language is not available on CPUs.
-Therefore, we need to use a GPU to fully test the implementation.
-
-My testing used the following versions:
-```
-triton==2.0.0.post1
-triton-nightly==2.1.0.dev20230808020556
-```
-
-Given the current implementation, I recommend the following limits on Flash Attention parameters:
-- Without a casual mask: $n \leq 3$, softmax $scale \leq 0.4$
-- With a casual mask: $n \leq 10^{-3}$, $scale \leq 1 / \sqrt{E}$
-
-## CUDA
-
-The CUDA implementation of Softmax_n is inspired by [x-transformers](https://github.com/lucidrains/x-transformers/blob/6867e9ac8a93f4844d70208c23cfd50cbc48485c/x_transformers/attend.py#L133).
-It works with causal masking and dropout.
-It also allows for an attention bias to be based as in ALiBi.
-Unlike the Triton implementation, this version can be run on a CPU or GPU. 
-You can use float32, float16, or bfloat16.
-The absolute tolerances I used in testing for the three datatypes were 1e-3, 1e-2, and 5e-2, respectively.
-Typically, the looser tolerances for fp16 and bf16 were only needed for a tiny fraction, ~1e-4,  of the elements of the output tensor.
-The main limitation of this implementation is that _n_ must be an integer, whereas in the Triton version, _n_ can be a real number.
-Beyond that, the query tensor must be four-dimensional, but the key and value tensors can be 3- or 4-d.
+### Triton
+The recommended function to use when you want GPU acceleration and have a non-integer-valued _n_.
+Note the Triton implementation has a more limited set of features compared to the CUDA version, see the above comparison table.
+*To use datatypes other than `fp16` first convert your input to `fp16` and then convert the attention output back to your original datatype.
+This is a generalization of OpenAI's Triton fused attention [implementation](https://github.com/openai/triton/blob/main/python/tutorials/06-fused-attention.py).
+Requires `torch>=2.0.0` and `triton>=2.0.0`.
 
 ```python
-from src.flash_attn import flash_attention_n
+import torch
+from flash_attention_softmax_n import flash_attention_n_triton
 
-def flash_attention_n(query: Tensor, key: Tensor, value: Tensor,
-                      softmax_n_param: Optional[int] = None, scale: Optional[float] = None, 
-                      dropout_p: float = 0., attn_mask: Optional[Tensor] = None, 
-                      attn_bias: Optional[Tensor] = None, is_causal: bool = False
-                      ) -> Tensor:
-    """
-    CUDA implementation of Flash Attention with Softmax_n inspired by x-transformers
-    :param query: Query tensor; shape (N, ..., L, E).
-    :param key: Key tensor; shape (N, ..., S, E).
-    :param value: Value tensor; shape (N, ..., S, Ev).
-    :param softmax_n_param: Regularization parameter for the generalized softmax_n.
-    :param scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
-    :param dropout_p: Dropout probability; if greater than 0.0, dropout is applied
-    :param attn_mask: Attention mask; shape (N, ..., L, S)
-    :param attn_bias: ALiBi positional bias; shape(..., L, S)
-    :param is_causal: If true, assumes causal attention masking.
-    :return: Attention output; shape (N, ..., L, Ev).
-    """
+softmax_n_param = 1.
+query = torch.randn((6, 1, 1024, 64))
+key = torch.randn((6, 1, 1152, 64))
+value = torch.randn((6, 1, 1152, 64))
+
+attn = flash_attention_n_triton(
+    query=query,
+    key=key,
+    value=value,
+    softmax_n_param=softmax_n_param,
+    scale=None,
+    is_causal=False
+)
 ```
 
+### Slow Attention
+Written in torch.
+Use this version when you have a real-valued _n_, and the Triton version is unavailable or doesn't have the feature(s) you need.
 
-## Links
-- [Flash Attention paper](https://arxiv.org/abs/2205.14135)
-- [Code associated with paper](https://github.com/Dao-AILab/flash-attention/tree/main)
-- [Triton documenation](https://triton-lang.org/main/index.html)
-- [Triton Attention tutorial](https://github.com/openai/triton/blob/main/python/tutorials/06-fused-attention.py) -- This is the source for the "OG" code.
-- [MoasicBERT](https://github.com/mosaicml/examples/tree/845bfe23c77316264d5dd6e2a6b7c46cefa4519a/examples/benchmarks/bert) -- Benchmark for training BERT cheaply in part using Flash Attention
+```python
+import torch
+from flash_attention_softmax_n import slow_attention_n
 
-## Contribute
-Feel free to suggest extensions, additional tests, etc. by raising an issue.
+softmax_n_param = 1.
+query = torch.randn((6, 1024, 64))
+key = torch.randn((6, 1152, 64))
+value = torch.randn((6, 1152, 32))
+
+attn = slow_attention_n(
+    query=query,
+    key=key,
+    value=value,
+    softmax_n_param=softmax_n_param,
+    scale=None,
+    dropout_p=0.,
+    attn_mask=None,
+    is_causal=False,
+    softmax_dtype=None
+)
+```
+
+We also provide a torch implementation of softmaxN that can be used as a drop-in replacement for softmax.
+```python
+import torch
+from flash_attention_softmax_n import softmax_n
+
+x = torch.rand((100, 100))
+# y = torch.nn.functional.softmax(x, dim=-1, dtype=torch.float32)
+y = softmax_n(x, dim=-1, dtype=torch.float32)
+
+y1 = softmax_n(x, n=1.)
+```

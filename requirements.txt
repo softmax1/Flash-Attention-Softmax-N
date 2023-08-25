@@ -1,6 +1,0 @@
-einops==0.6.1
-pytest==7.4.0
-torch==2.0.1
-triton
---index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/
-triton-nightly
