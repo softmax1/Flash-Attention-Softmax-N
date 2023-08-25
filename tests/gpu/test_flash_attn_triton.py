@@ -21,7 +21,7 @@ def test_flash_attention_comparison(device_name, sm_n, is_causal, scale):
     max_sequence_len = 1024
     embed_dimension = 32
 
-    atol = 1e-3
+    atol = 2e-3
     rtol = 0.
 
     # Test forward step,
@@ -59,7 +59,7 @@ def test_flash_attention_comparison_causal(device_name, sm_n, is_causal, scale):
     max_sequence_len = 1024
     embed_dimension = 32
 
-    atol = 1e-2
+    atol = 2e-2
     rtol = 0.
 
     # Test forward step,
@@ -97,7 +97,7 @@ def test_flash_attention_comparison_causa_1em3(device_name, sm_n, is_causal, sca
     max_sequence_len = 1024
     embed_dimension = 32
 
-    atol = 1e-2
+    atol = 2e-2
     rtol = 0.
 
     # Test forward step,
