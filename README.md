@@ -29,6 +29,7 @@ $ pip install flash-attention-softmax-n
 Optionally install the Triton implementation
 ```bash
 $ pip install flash-attention-softmax-n[triton]
+$ pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/ triton-nightly
 ```
 
 ## Usage

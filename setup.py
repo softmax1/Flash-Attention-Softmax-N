@@ -22,9 +22,8 @@ setup(
   ],
   extras_require={
         "triton": [
-          "triton>=2.0.0",
-          "triton-nightly @ https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/"
-        ],
+          "triton>=2.0.0"
+        ]
     },
   classifiers=[
     'Intended Audience :: Developers',
