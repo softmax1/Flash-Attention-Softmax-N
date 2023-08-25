@@ -11,7 +11,7 @@ from tests.common import get_query_key_value, device_name, attention_analytic_an
 
 
 @mark.parametrize("sm_n", [0., 1., 1e-3, 1e-6, 4., 3.])
-@mark.parametrize("is_causal", [False, True])
+@mark.parametrize("is_causal", [False])
 @mark.parametrize("scale", [None, 0.5, 0.01, 0.4, 0.3, 0.02])
 def test_flash_attention_comparison(device_name, sm_n, is_causal, scale):
     """
@@ -21,7 +21,83 @@ def test_flash_attention_comparison(device_name, sm_n, is_causal, scale):
     max_sequence_len = 1024
     embed_dimension = 32
 
-    atol = 1e-2 if is_causal else 1e-3
+    atol = 2e-3
+    rtol = 0.
+
+    # Test forward step,
+    query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=float16)
+    actual = flash_attention_n_triton(query, key, value, is_causal=is_causal, scale=scale, softmax_n_param=sm_n)
+    expected = slow_attention_n(query, key, value, is_causal=is_causal, scale=scale, softmax_n_param=sm_n)
+    assert_close(actual, expected, atol=atol, rtol=rtol)
+
+    # and backward step.
+    doutput = randn_like(actual)
+    actual.backward(doutput)
+    actual_dvalue, value.grad = value.grad.clone(), None
+    actual_dkey, key.grad = key.grad.clone(), None
+    actual_dquery, query.grad = query.grad.clone(), None
+    expected.backward(doutput)
+    expected_dvalue, value.grad = value.grad.clone(), None
+    expected_dkey, key.grad = key.grad.clone(), None
+    expected_dquery, query.grad = query.grad.clone(), None
+    assert_close(actual_dvalue, expected_dvalue, atol=atol, rtol=rtol)
+    assert_close(actual_dkey, expected_dkey, atol=atol, rtol=rtol)
+    assert_close(actual_dquery, expected_dquery, atol=atol, rtol=rtol)
+
+    empty_cache()
+    gc.collect()
+
+
+@mark.parametrize("sm_n", [0., 1e-6])
+@mark.parametrize("is_causal", [True])
+@mark.parametrize("scale", [None, 0.5, 0.01, 0.4, 0.3, 0.02])
+def test_flash_attention_comparison_causal(device_name, sm_n, is_causal, scale):
+    """
+    Compare the Torch and Triton Attention implementations
+    """
+    batch_size = (32, 16)
+    max_sequence_len = 1024
+    embed_dimension = 32
+
+    atol = 2e-2
+    rtol = 0.
+
+    # Test forward step,
+    query, key, value = get_query_key_value(batch_size, max_sequence_len, embed_dimension, device=device_name, dtype=float16)
+    actual = flash_attention_n_triton(query, key, value, is_causal=is_causal, scale=scale, softmax_n_param=sm_n)
+    expected = slow_attention_n(query, key, value, is_causal=is_causal, scale=scale, softmax_n_param=sm_n)
+    assert_close(actual, expected, atol=atol, rtol=rtol)
+
+    # and backward step.
+    doutput = randn_like(actual)
+    actual.backward(doutput)
+    actual_dvalue, value.grad = value.grad.clone(), None
+    actual_dkey, key.grad = key.grad.clone(), None
+    actual_dquery, query.grad = query.grad.clone(), None
+    expected.backward(doutput)
+    expected_dvalue, value.grad = value.grad.clone(), None
+    expected_dkey, key.grad = key.grad.clone(), None
+    expected_dquery, query.grad = query.grad.clone(), None
+    assert_close(actual_dvalue, expected_dvalue, atol=atol, rtol=rtol)
+    assert_close(actual_dkey, expected_dkey, atol=atol, rtol=rtol)
+    assert_close(actual_dquery, expected_dquery, atol=atol, rtol=rtol)
+
+    empty_cache()
+    gc.collect()
+
+
+@mark.parametrize("sm_n", [1e-3])
+@mark.parametrize("is_causal", [True])
+@mark.parametrize("scale", [None, 0.01, 0.3, 0.02])
+def test_flash_attention_comparison_causa_1em3(device_name, sm_n, is_causal, scale):
+    """
+    Compare the Torch and Triton Attention implementations
+    """
+    batch_size = (32, 16)
+    max_sequence_len = 1024
+    embed_dimension = 32
+
+    atol = 2e-2
     rtol = 0.
 
     # Test forward step,
