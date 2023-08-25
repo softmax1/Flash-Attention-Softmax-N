@@ -23,7 +23,7 @@ setup(
   extras_require={
         "triton": [
           "triton==2.0.0.post1",
-          "triton-nightly==2.1.0.dev20230808020556 @ https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/"
+          "triton-nightly @ https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/"
         ],
     },
   classifiers=[
