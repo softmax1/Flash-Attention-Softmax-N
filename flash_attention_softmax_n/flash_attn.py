@@ -98,7 +98,9 @@ def flash_attention_n(
         attn_bias = zeros((heads, q_len, k_len), device=device, dtype=dtype)
 
     if attn_bias is not None:
-        attn_bias = rearrange(attn_bias, 'h i j -> 1 h i j').expand(batch, heads, -1, -1)
+        if attn_bias.ndim == 3:
+            attn_bias = rearrange(attn_bias, 'h i j -> 1 h i j')
+        attn_bias = attn_bias.expand(batch, heads, -1, -1)
 
         mask_value = -finfo(dtype).max
 
