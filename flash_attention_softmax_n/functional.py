@@ -21,6 +21,8 @@ def softmax_n(x: Tensor, n: Optional[float] = None, dim: Optional[int] = None, d
     """
     if n is None:
         n = 0.
+    if dim is None:
+        dim = -1
     shift = x.max(dim=dim, keepdim=True).values.detach()
     numerator = exp(x - shift)
     output = numerator / (n * exp(-shift) + numerator.sum(dim=dim, keepdim=True))
