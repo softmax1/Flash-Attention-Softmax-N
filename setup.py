@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
   name='flash-attention-softmax-n',
   packages=find_packages(exclude=['tests*']),
-  version='0.1.0',
+  version='0.1.0rc6',
   license='GPLv3',
   description='CUDA and Triton implementations of Flash Attention with SoftmaxN.',
   author='Christopher W. Murphy',
@@ -26,9 +26,12 @@ setup(
         ]
     },
   classifiers=[
+    'Development Status :: 4 - Beta',
     'Intended Audience :: Developers',
     'Topic :: Scientific/Engineering :: Artificial Intelligence',
     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-    'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11'
   ],
 )
