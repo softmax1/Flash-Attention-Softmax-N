@@ -1,12 +1,30 @@
 # Flash-Attention-Softmax-N
 
-CUDA and Triton implementations of [flash attention](https://arxiv.org/abs/2205.14135) with softmaxN.
-
+[Flash attention](https://arxiv.org/abs/2205.14135) with softmaxN.
 [Attention is Off By One](https://www.evanmiller.org/attention-is-off-by-one.html) hypothesized that using softmax1 in the attention mechanism will reduce the number of outliers in the activations and weights of a transformer model.
-SoftmaxN is defined as
+
+🎯**Efficent, Numerically-Stable Implementation of SoftmaxN**: No more worrying about the non-trivial implementation of softmaxN.
 $$\text{softmax}_n(x_i) = \frac{\exp(x_i)}{n + \sum_j \exp(x_j)}$$
-and is non-trivial to implement efficiently even in numpy or torch, see `softmax_n` below.
+
+🚀 **Multiple Attention Implementations, your choice**: Whatever you're aiming for, we've got you covered with three Attention implementations
 In the spirit of the flash attention paper, further gains can be made by considering the whole attention function instead of just the softmaxN subfunction.
+- `flash_attention_n`: recommended for integer values of _n_, uses CUDA on the backend if a GPU is available 
+- `flash_attention_n_triton`: recommended for non-integer values of _n_ when a GPU is available, uses Triton
+- `slow_attention_n`: flexible, torch-based implementation
+
+## Install
+Simple installation
+```bash
+$ pip install flash-attention-softmax-n
+```
+Optionally install the Triton implementation
+```bash
+$ pip install flash-attention-softmax-n[triton]
+$ pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/ triton-nightly
+```
+
+## Usage
+
 
 |              Feature / Function              | `flash_attention_n` |    `flash_attention_n_triton`    | `slow_attention_n` |
 |:--------------------------------------------:|:-------------------:|:--------------------------------:|:------------------:|
@@ -21,18 +39,6 @@ In the spirit of the flash attention paper, further gains can be made by conside
 |          supports `query.ndim < 4`           |         No          |                No                |        Yes         |
 | supports `key.ndim < 4` and `value.ndim < 4` |         Yes         |                No                |        Yes         |
 | requries `key.shape[-1] == value.shape[-1]`  |         No          |               Yes                |         No         |
-
-## Install
-```bash
-$ pip install flash-attention-softmax-n
-```
-Optionally install the Triton implementation
-```bash
-$ pip install flash-attention-softmax-n[triton]
-$ pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/ triton-nightly
-```
-
-## Usage
 
 ### CUDA
 The recommendation function to use for integer-values of _n_ with or without a GPU.
