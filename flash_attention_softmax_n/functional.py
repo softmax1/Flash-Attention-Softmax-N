@@ -38,6 +38,7 @@ def slow_attention_n(query: Tensor,
                      scale: Optional[float] = None,
                      softmax_n_param: Optional[float] = None,
                      softmax_dtype: Optional[DType] = None,
+                     train: bool = True,
                      ) -> Tensor:
     """
     Inefficient implementation of Scaled Dot Product Attention
@@ -87,5 +88,5 @@ def slow_attention_n(query: Tensor,
     attn_weight = query @ key.transpose(-2, -1) * scale_factor
     attn_weight += attn_bias
     attn_weight = softmax_n(attn_weight, n=softmax_n_param, dim=-1, dtype=softmax_dtype)
-    attn_weight = dropout(attn_weight, dropout_p, train=True)
+    attn_weight = dropout(attn_weight, dropout_p, train=train)
     return attn_weight @ value
