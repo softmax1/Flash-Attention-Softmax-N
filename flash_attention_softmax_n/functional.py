@@ -57,6 +57,7 @@ def slow_attention_n(query: Tensor,
     :param scale: Scaling factor applied prior to softmax. If None, the default value is set to 1 / sqrt(E).
     :param softmax_n_param: Regularization parameter for the generalized softmax_n
     :param softmax_dtype: The datatype for the output from the softmax operation.
+    param train: If false, turns off dropout for inference.
     :return: Attention output; shape (N, ..., L, Ev).
 
     Shape Legend:
