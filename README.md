@@ -116,7 +116,8 @@ attn = slow_attention_n(
     dropout_p=0.,
     attn_mask=None,
     is_causal=False,
-    softmax_dtype=None
+    softmax_dtype=None,
+    train=True
 )
 ```
 
