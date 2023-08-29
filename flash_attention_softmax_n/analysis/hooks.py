@@ -31,16 +31,18 @@ def save_activations_statistics(
     batch_weight = batch_size / (activations[name]['n_samples'] + batch_size)
     activations[name]['n_samples'] += batch_size
 
-    kurtosis_update = kurtosis_batch_mean(out)
-    activations[name]['kurtosis'] = (1 - batch_weight) * activations[name]['kurtosis'] + batch_weight * kurtosis_update
+    stat_funcs = {
+        'kurtosis': kurtosis_batch_mean,
+        'skewness': skewness_batch_mean,
+        'variance': variance_batch_mean,
+        'mean': lambda x: mean(x).item()
+    }
 
-    skewness_update = skewness_batch_mean(out)
-    activations[name]['skewness'] = (1 - batch_weight) * activations[name]['skewness'] + batch_weight * skewness_update
-
-    variance_update = variance_batch_mean(out)
-    activations[name]['variance'] = (1 - batch_weight) * activations[name]['variance'] + batch_weight * variance_update
-
-    activations[name]['mean'] = (1 - batch_weight) * activations[name]['mean'] + batch_weight * mean(out).item()
+    for stat, func in stat_funcs.items():
+        # Down-weight the current value
+        activations[name][stat] *= (1 - batch_weight)
+        # Add the weighted new value
+        activations[name][stat] += batch_weight * func(out)
 
 
 def register_activation_hooks(
