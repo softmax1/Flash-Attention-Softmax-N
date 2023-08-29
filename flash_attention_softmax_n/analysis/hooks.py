@@ -77,6 +77,7 @@ def register_activation_hooks(
     return activations_dict
 
 
+@no_grad()
 def compute_weight_statistics(model: Module) -> Dict[str, Dict[str, float]]:
     results = dict()
     for name, param in model.named_parameters():
