@@ -3,8 +3,8 @@ from torch import Tensor, log, float16, randn_like, ones, bfloat16
 from torch.nn.functional import scaled_dot_product_attention
 from torch.testing import assert_close
 
-from flash_attention_softmax_n.functional import softmax_n, slow_attention_n
-from tests.common import get_query_key_value, device_name, attention_analytic_answer, attention_analytic_casual_answer
+from flash_attention_softmax_n.core.functional import softmax_n, slow_attention_n
+from tests.common import get_query_key_value, attention_analytic_answer, attention_analytic_casual_answer, device_name
 
 
 @mark.parametrize("n", [0., 1., 1e-3, 1e-6, 4.])

@@ -5,9 +5,9 @@ from torch import float16, randn_like, ones
 from torch.cuda import empty_cache
 from torch.testing import assert_close
 
-from flash_attention_softmax_n.functional import slow_attention_n
-from flash_attention_softmax_n.flash_attn_triton import flash_attention_n_triton
-from tests.common import get_query_key_value, device_name, attention_analytic_answer, attention_analytic_casual_answer
+from flash_attention_softmax_n.core.functional import slow_attention_n
+from flash_attention_softmax_n.core.flash_attn_triton import flash_attention_n_triton
+from tests.common import get_query_key_value, attention_analytic_answer, attention_analytic_casual_answer, device_name
 
 
 @mark.parametrize("sm_n", [0., 1., 1e-3, 1e-6, 4., 3.])

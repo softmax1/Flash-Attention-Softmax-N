@@ -2,9 +2,9 @@ from pytest import mark
 from torch import randn_like, ones, float32, bfloat16
 from torch.testing import assert_close
 
-from flash_attention_softmax_n.flash_attn import flash_attention_n
-from flash_attention_softmax_n.functional import slow_attention_n
-from tests.common import get_query_key_value, device_name, attention_analytic_answer, attention_analytic_casual_answer
+from flash_attention_softmax_n.core.flash_attn import flash_attention_n
+from flash_attention_softmax_n.core.functional import slow_attention_n
+from tests.common import get_query_key_value, attention_analytic_answer, attention_analytic_casual_answer, device_name
 
 
 @mark.parametrize("n", [0, 1, 4])
