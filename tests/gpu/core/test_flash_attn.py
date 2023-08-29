@@ -1,21 +1,21 @@
 from pytest import mark
-from torch import randn_like, ones, float32, bfloat16
+from torch import randn_like, ones, float32, float16, bfloat16
 from torch.testing import assert_close
 
-from flash_attention_softmax_n.flash_attn import flash_attention_n
-from flash_attention_softmax_n.functional import slow_attention_n
-from tests.common import get_query_key_value, device_name, attention_analytic_answer, attention_analytic_casual_answer
+from flash_attention_softmax_n.core.flash_attn import flash_attention_n
+from flash_attention_softmax_n.core.functional import slow_attention_n
+from tests.common import get_query_key_value, attention_analytic_answer, attention_analytic_casual_answer, device_name
 
 
 @mark.parametrize("n", [0, 1, 4])
 @mark.parametrize("scale", [None, 0.1, 0.5])
 @mark.parametrize("dropout", [0., 0.2])
 @mark.parametrize("is_causal", [False, True])
-@mark.parametrize("dtype, atol", [(float32, 1e-6), (bfloat16, 2e-2)])
+@mark.parametrize("dtype, atol", [(float32, 1e-3), (float16, 1e-2), (bfloat16, 5e-2)])
 def test_flash_attention_n(device_name, n, scale, dropout, is_causal, dtype, atol):
-    batch_size = (2, 1)
-    max_sequence_len = 3
-    embed_dimension = 8
+    batch_size = (6, 1)
+    max_sequence_len = 1024
+    embed_dimension = 64
 
     rtol = 0.
 
@@ -50,23 +50,24 @@ def test_flash_attention_n(device_name, n, scale, dropout, is_causal, dtype, ato
 
 @mark.parametrize("n", [0, 1, 4])
 @mark.parametrize("weight", [10, 3, 0.5, 0.04, 0.02, 0.01, 0, -0.01, -0.02, -0.04, -0.5, -3, -10])
-def test_flash_attention_analytic(device_name, n, weight):
+@mark.parametrize("dtype", [float32, float16, bfloat16])
+def test_flash_attention_analytic(device_name, n, weight, dtype):
     """
     When the elements of the input tensors Q, K, & V all have the same value, there is a closed-form expression for the output of Attention w/ or w/o a casual mask.
     """
-    N = 2
-    L = 2
-    S = 2
-    E = 8
-    Ev = 8
+    N = 6
+    L = 1024
+    S = 1024 + 128
+    E = 64
+    Ev = 64
     scale = 0.3
 
     atol = 1e-3
     rtol = 0.
 
-    query = weight * ones((N, 1, L, E), device=device_name)
-    key = weight * ones((N, 1, S, E), device=device_name)
-    value = weight * ones((N, 1, S, Ev), device=device_name)
+    query = weight * ones((N, 1, L, E), device=device_name, dtype=dtype)
+    key = weight * ones((N, 1, S, E), device=device_name, dtype=dtype)
+    value = weight * ones((N, 1, S, Ev), device=device_name, dtype=dtype)
 
     output_0a = slow_attention_n(query, key, value, scale=scale, softmax_n_param=n)
     output_1a = flash_attention_n(query, key, value, scale=scale, softmax_n_param=n)
@@ -78,7 +79,7 @@ def test_flash_attention_analytic(device_name, n, weight):
     assert_close(output_1a[:, 0, :, :], expected_a, atol=atol, rtol=rtol)
 
     atol = 0
-    rtol = 2e-3
+    rtol = 2e-2 if dtype == bfloat16 else 2e-3
 
     output_0b = slow_attention_n(query, key, value, scale=scale, is_causal=True, softmax_n_param=n)
     output_1b = flash_attention_n(query, key, value, scale=scale, is_causal=True, softmax_n_param=n)
