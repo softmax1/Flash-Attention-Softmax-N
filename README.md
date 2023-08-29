@@ -6,11 +6,14 @@
 🎯**Efficent, Numerically-Stable Implementation of SoftmaxN**: No more worrying about the non-trivial implementation of softmaxN.
 $$\text{softmax}_n(x_i) = \frac{\exp(x_i)}{n + \sum_j \exp(x_j)}$$
 
-🚀 **Multiple Attention Implementations, your choice**: Whatever you're aiming for, we've got you covered with three Attention implementations
+🚀 **Multiple Attention Implementations, your choice**: Whatever you're aiming for, we've got you covered with three Attention implementations.
 In the spirit of the flash attention paper, further gains can be made by considering the whole attention function instead of just the softmaxN subfunction.
 - `flash_attention_n`: recommended for integer values of _n_, uses CUDA on the backend if a GPU is available 
 - `flash_attention_n_triton`: recommended for non-integer values of _n_ when a GPU is available, uses Triton
 - `slow_attention_n`: flexible, torch-based implementation
+
+🧠 **Perform statistical analyses**: Compute summary statistics for both the weights and activations of your model.
+The activation stats are computed online as the model is training.
 
 ## Install
 Simple installation
@@ -131,4 +134,21 @@ x = torch.rand((100, 100))
 y = softmax_n(x, dim=-1, dtype=torch.float32)
 
 y1 = softmax_n(x, n=1.)
+```
+
+### Statistical Analysis
+```python
+from flash_attention_softmax_n.analysis import register_activation_hooks, compute_weight_statistics, save_results
+
+model = GPT4()  # XD
+activations_statistics = register_activation_hooks(model)  # activation stats are computed online during training, so register the hooks in advance
+
+trainer.train(model)
+
+weight_statistics = compute_weight_statistics(model)  # weights stats are coputed after training is finished
+
+print(activations_statistics['...attention.output...']['kurtosis'])
+print(weight_statistics['...attention.output...']['kurtosis'])
+
+save_results({'activations': activations_statistics, 'weights': weight_statistics}, 'my-gpt4')
 ```
