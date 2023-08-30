@@ -7,17 +7,15 @@ from flash_attention_softmax_n.analysis.hooks import register_activation_hooks, 
 
 
 class Transformer(Module):
-    def __init__(self, return_inputs: bool = False):
+    def __init__(self):
         super().__init__()
-        self.return_inputs = return_inputs
         self.linear1 = Linear(32, 16)
         self.linear2 = Linear(16, 7)
 
     def forward(self, q, k, v):
         fa = flash_attention_n(q, k, v)
         l1 = self.linear1(fa)
-        l2 = self.linear2(l1)
-        return l2, q, k, v if self.return_inputs else l2
+        return self.linear2(l1)
 
 
 @mark.parametrize("acts_to_save", [None, "linear1,linear2"])
@@ -37,8 +35,6 @@ def test_register_activation_hooks(acts_to_save):
         value = randn((batch_size, 1, 1152, 32))
 
         model(query, key, value)
-
-    print(saved_activations)
 
     assert len(saved_activations) == 0 if to_save is None else len(to_save)
 
