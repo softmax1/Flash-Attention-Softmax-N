@@ -7,21 +7,23 @@ from flash_attention_softmax_n.analysis.hooks import register_activation_hooks, 
 
 
 class Transformer(Module):
-    def __init__(self):
+    def __init__(self, return_inputs: bool = False):
         super().__init__()
+        self.return_inputs = return_inputs
         self.linear1 = Linear(32, 16)
         self.linear2 = Linear(16, 7)
 
     def forward(self, q, k, v):
         fa = flash_attention_n(q, k, v)
         l1 = self.linear1(fa)
-        return self.linear2(l1)
+        l2 = self.linear2(l1)
+        return l2, q, k, v if self.return_inputs else l2
 
 
 @mark.parametrize("acts_to_save", [None, "linear1,linear2"])
 def test_register_activation_hooks(acts_to_save):
     model = Transformer()
-    to_save = None if acts_to_save is None else acts_to_save.split(',')
+    to_save = None if acts_to_save is None else set(acts_to_save.split(','))
 
     # register fwd hooks in specified layers
     saved_activations = register_activation_hooks(model, layers_to_save=to_save)
@@ -36,8 +38,10 @@ def test_register_activation_hooks(acts_to_save):
 
         model(query, key, value)
 
-    if to_save is not None:
-        assert len(saved_activations) == len(to_save)
+    print(saved_activations)
+
+    assert len(saved_activations) == 0 if to_save is None else len(to_save)
+
     for activation in saved_activations:
         assert len(saved_activations[activation]) == 5
         assert saved_activations[activation]['n_samples'] == n_batches * batch_size
