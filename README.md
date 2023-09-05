@@ -160,6 +160,9 @@ save_results({'activations': activations_statistics, 'weights': weight_statistic
 ```
 
 ### Surgery
+"Operate" on pretrained models to generalize them to softmax_n.
+Based on MosaicML's [composer](https://github.com/mosaicml/composer).
+
 Functional API: add one line of code to your script.
 ```python
 import transformers
