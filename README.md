@@ -27,6 +27,10 @@ Optionally install the Triton implementation
 $ pip install flash-attention-softmax-n[triton]
 $ pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/ triton-nightly
 ```
+Optionally install the surgery subpackage for converting pretrained models to softmax_n
+```bash
+$ pip install flash-attention-softmax-n[surgery]
+```
 
 ## Usage
 
