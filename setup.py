@@ -1,9 +1,29 @@
 from setuptools import setup, find_packages
 
+
+VERSION = '0.3.0'
+
+
+install_requires = [
+  'torch>=2.0.0',
+  'einops>=0.6.1'
+]
+
+
+extras_require = dict()
+extras_require["triton"] = [
+  "triton>=2.0.0"
+]
+extras_require["surgery"] = [
+  "mosaicml>=0.16.0",
+  "transformers>=4.11,<4.33"
+]
+
+
 setup(
   name='flash-attention-softmax-n',
   packages=find_packages(exclude=['tests*']),
-  version='0.2.1',
+  version=VERSION,
   license='GPLv3',
   description='CUDA and Triton implementations of Flash Attention with SoftmaxN.',
   author='Christopher W. Murphy',
@@ -17,15 +37,8 @@ setup(
     'attention mechanism',
     'transformers'
   ],
-  install_requires=[
-    'torch>=2.0.0',
-    'einops>=0.6.1'
-  ],
-  extras_require={
-        "triton": [
-          "triton>=2.0.0"
-        ]
-    },
+  install_requires=install_requires,
+  extras_require=extras_require,
   classifiers=[
     'Development Status :: 4 - Beta',
     'Intended Audience :: Developers',
