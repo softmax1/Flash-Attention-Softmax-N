@@ -15,7 +15,7 @@ In the spirit of the flash attention paper, further gains can be made by conside
 🧠 **Run statistical analyses**: Compute summary statistics for both the weights and activations of your model.
 The activation stats are computed online as the model is training.
 
-🔥 **Perform surgery on existing models** Take a pretrained model with softmax_0 in its attention mechanism and "operator" on it to replace softmax_0 with softmax_n.
+🔥 **Perform "surgery" on existing models** Take a pretrained model with softmax_0 in its attention mechanism and "operate" on it to replace softmax_0 with softmax_n.
 
 ## Install
 Simple installation
