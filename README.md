@@ -12,8 +12,10 @@ In the spirit of the flash attention paper, further gains can be made by conside
 - `flash_attention_n_triton`: recommended for non-integer values of _n_ when a GPU is available, uses Triton
 - `slow_attention_n`: flexible, torch-based implementation
 
-🧠 **Perform statistical analyses**: Compute summary statistics for both the weights and activations of your model.
+🧠 **Run statistical analyses**: Compute summary statistics for both the weights and activations of your model.
 The activation stats are computed online as the model is training.
+
+🔥 **Perform surgery on existing models** Take a pretrained model with softmax_0 in its attention mechanism and "operator" on it to replace softmax_0 with softmax_n.
 
 ## Install
 Simple installation
@@ -151,4 +153,82 @@ print(activations_statistics['...attention.output...']['kurtosis'])
 print(weight_statistics['...attention.output...']['kurtosis'])
 
 save_results({'activations': activations_statistics, 'weights': weight_statistics}, 'my-gpt4')
+```
+
+### Surgery
+Functional API: add one line of code to your script.
+```python
+import transformers
+
+from flash_attention_softmax_n.surgery import apply_attention_softmax_n
+
+
+model = transformers.AutoModel.from_pretrained('bert-base-uncased')
+apply_attention_softmax_n(model=model, softmax_n_param=1.)
+...
+```
+
+Object-oriented API for use with the MosaicML composer trainer.
+```python
+import composer
+import transformers
+
+from flash_attention_softmax_n.surgery import AttentionSoftmaxN
+
+
+model = transformers.AutoModel.from_pretrained('bert-base-uncased')
+trainer = composer.trainer.Trainer(
+    model=model,
+    algorithms=[AttentionSoftmaxN(softmax_n_param=1.)]
+)
+...
+```
+
+Add your model to the registry!
+(Currently, only BERT and RoBERTa without flash attention are available by default.)
+As an example, use `policy_registry` to replace slow_attention_0 in `MyModel` with flash_attention_n.
+After registration, wrap the model in `apply_attention_softmax_n`.
+```python
+import types
+
+import torch
+
+from flash_attention_n import slow_attention_n, flash_attention_n
+from flash_attention_softmax_n.surgery import apply_attention_softmax_n
+from flash_attention_n.surgery.surgery_functions import policy_registry
+
+
+class MyModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.attn = SlowAttention()
+
+    def forward(self, q, k, v):
+        return self.attn(q, k, v, softmax_n_param=0.)
+
+
+class SlowAttention(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, q, k, v):
+        return slow_attention_n(q, k, v, softmax_n_param=0.)
+
+
+@policy_registry.register(SlowAttention)
+def slow_attention_converter(module: torch.nn.Module, module_index: int, softmax_n_param: float) -> torch.nn.Module:
+    assert isinstance(module, SlowAttention)
+    del module_index  # unused
+    module.n = softmax_n_param
+    setattr(module, 'forward', types.MethodType(forward, module))
+    return module
+
+
+def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+    return flash_attention_n(q, k, v, softmax_n_param=int(self.n))
+
+
+if __name__ == '__main__':
+    model = MyModel()
+    apply_attention_softmax_n(model=model, softmax_n_param=1.)  # will log a warning if the model isn't registered
 ```
