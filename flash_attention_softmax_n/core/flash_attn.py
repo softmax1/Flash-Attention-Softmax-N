@@ -25,8 +25,8 @@ def _flash_attn_config(query: Tensor) -> _EfficientAttentionConfig:
     if is_available():
         device_properties = get_device_properties(device_obj('cuda'))
 
-        if device_properties.major == 8 and device_properties.minor == 0:
-            # A100 GPU detected, using flash attention if input tensor is on cuda
+        if device_properties.major in {7, 8} and device_properties.minor == 0:
+            # A100 (and A30) GPU == 8.0, V100 GPU = 7.0
             cuda_config = _EfficientAttentionConfig(True, False, False)
         else:
             # Non-A100 GPU detected, using math or mem efficient attention if input tensor is on cuda
