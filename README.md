@@ -192,7 +192,7 @@ trainer = composer.trainer.Trainer(
 ```
 
 Add your model to the registry!
-(Currently, only BERT and RoBERTa without flash attention are available by default.)
+Currently, only BERT, RoBERTa, and XLNet without flash attention are available by default.
 As an example, use `policy_registry` to replace slow_attention_0 in `MyModel` with flash_attention_n.
 After registration, wrap the model in `apply_attention_softmax_n`.
 ```python
